@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Scrambled Word Bingo®</title>
+<title>Scrambled Word Bingo™</title>
 <style>
 :root{
  --navy:#061f4f;--royal:#153aa9;--purple:#6c2db6;--pink:#ed2b91;--gold:#ffc31e;
@@ -148,6 +148,39 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
 </style>
 
 <style id="board-preview-size-v15">@media(min-width:901px){.boardCard img{max-width:340px!important}}</style>
+
+<style id="polished-centered-instructions-v16">
+/* V16: centered, polished website copy and clearer game instructions */
+#how, #modes, #family-game-night, #topics, .topics, .reviewBox, .readyInner {text-align:center;}
+.section > h2, .built > h2 {text-align:center; letter-spacing:.01em;}
+.howIntro{max-width:820px;margin:0 auto 12px;font-size:14px;line-height:1.55;color:#44536f;text-align:center;}
+.howGridSix{grid-template-columns:repeat(3,1fr);}
+.step{text-align:center;padding:14px 12px;line-height:1.42;}
+.step b{display:block;font-size:15px;margin-bottom:6px;}
+.step p{margin:0;color:#43516a;}
+.goalStep{background:linear-gradient(180deg,#fff,#f8f4ff);border-color:#d9c6f3;}
+.finishStep{border:2px solid #2e9b50;background:linear-gradient(180deg,#f7fff8,#effcf2);}
+.goalBanner{max-width:820px;margin:10px auto 0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,#eef6ff,#f6edff,#fff7d7);border:1px solid #d3dcef;color:#173b72;font-size:14px;text-align:center;}
+.playCard{text-align:center;}
+.playCard p{margin:0;line-height:1.4;color:#43516a;}
+.familySteps{text-align:center;}
+.familyRow{grid-template-columns:1fr;justify-items:center;text-align:center;padding:10px 12px;}
+.familyRow .icon{font-size:24px;}
+.familyRow b{font-size:14px;margin-bottom:4px;}
+.familyFinish{background:linear-gradient(90deg,#fff9e8,#f4fff5);border-radius:9px;margin-top:4px;border:1px solid #e4d8a9;}
+.topics p,.topic,.topic p{text-align:center;}
+.reviewBox label{text-align:center;}
+.readyInner{justify-content:center;}
+.readyInner > div{flex:1 1 100%;text-align:center;}
+@media(max-width:900px){.howGridSix{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:620px){.howGridSix{grid-template-columns:1fr;}.howIntro,.goalBanner{font-size:13px;}}
+</style>
+
+<style id="mode-cards-nonclick-v17">
+.modeBtns .modeInfo{cursor:default;text-decoration:none;user-select:none;}
+.modeBtns .modeInfo:hover{transform:none;filter:none;}
+.modeChooseNote{margin:10px auto 0!important;max-width:620px;text-align:center!important;font-size:12.5px!important;line-height:1.4!important;opacity:.9;}
+</style>
 </head>
 <body>
 <div class="topbar">⭐ FREE Daily Puzzle for Everyone! &nbsp;&nbsp; • &nbsp;&nbsp; Play • Compete • Connect • Have Fun!</div>
@@ -169,10 +202,11 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
       <h1>The Word Game Everyone <span>Can Play and Enjoy!</span></h1>
       <p>Unscramble the letters. Use progressive hints. Cover the board. Make BINGO! Play at home, with family and friends, in classrooms, senior communities and groups.</p>
       <div class="modeBtns">
-        <a class="mode solo" href="game.html">PLAY SOLO<small>3 Free Games/Day</small></a>
-        <a class="mode family" href="game.html">FAMILY GAME NIGHT<small>Play Together</small></a>
-        <a class="mode dailyBtn" href="game.html">DAILY PUZZLE<small>Free Challenge</small></a>
+        <div class="mode solo modeInfo" role="group" aria-label="Solo Game">SOLO GAME<small>3 Free Games/Day</small></div>
+        <div class="mode family modeInfo" role="group" aria-label="Family Game Night">FAMILY GAME NIGHT<small>Play Together</small></div>
+        <div class="mode dailyBtn modeInfo" role="group" aria-label="Daily Puzzle">DAILY PUZZLE<small>Free Challenge</small></div>
       </div>
+      <p class="modeChooseNote">Open the game with <b>PLAY NOW</b>, then choose Solo Game, Family Game Night, or Daily Puzzle inside the game.</p>
     </div>
     <div class="panel dailyPanel">
       <h2>☀️ TODAY'S DAILY PUZZLE</h2>
@@ -183,13 +217,13 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
         <div>Build your daily streak</div>
         <div>Future online leaderboard rankings</div>
       </div>
-      <a class="cta" href="game.html">PLAY TODAY'S PUZZLE</a>
+      <a class="cta" href="game.html">OPEN GAME &amp; CHOOSE DAILY PUZZLE</a>
     </div>
     <div class="panel leader">
       <div class="trophy">🏆</div>
       <h3>THE DAILY PUZZLE LEADERBOARD</h3>
       <p>Top Players<br>Every Day!</p>
-      <small>Coming with the live online version</small>
+      <small>Online leaderboard coming soon</small>
     </div>
   </div>
   <div class="featureStrip">
@@ -203,13 +237,17 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
 
 <main class="wrap">
 <section class="section" id="how">
-  <h2>❓ How It Works</h2>
-  <div class="howGrid">
-    <div class="step"><b>1. Choose Your Game</b><p>Play Solo, Family Game Night or the Daily Puzzle.</p></div>
-    <div class="step"><b>2. Select a Tile</b><p>Reveal a scrambled word from the B-I-N-G-O board.</p></div>
-    <div class="step"><b>3. Unscramble & Submit</b><p>Solve the word. Use progressive hints when needed.</p></div>
-    <div class="step"><b>4. Make BINGO!</b><p>Keep solving until you reach the selected winning goal.</p></div>
+  <h2>❓ How to Play Scrambled Word Bingo™</h2>
+  <p class="howIntro">Getting started is easy. Make your selections, choose a tile, unscramble the word, and keep playing until you complete the full board.</p>
+  <div class="howGrid howGridSix">
+    <div class="step"><b>1. Choose a Theme</b><p>Use the <strong>Theme</strong> pull-down menu to choose the type of words you want to play.</p></div>
+    <div class="step"><b>2. Choose a Board</b><p>Next, use the <strong>Board</strong> pull-down menu to select the specific board you want within that theme.</p></div>
+    <div class="step"><b>3. Choose Your Play Mode</b><p>Select <strong>Solo</strong>, <strong>Family Game Night</strong>, or the <strong>Daily Puzzle</strong>.</p></div>
+    <div class="step"><b>4. Select a Tile &amp; Solve</b><p>Choose a tile, unscramble the word, type your answer, and press <strong>Submit</strong>. Progressive hints are available when you need help.</p></div>
+    <div class="step goalStep"><b>5. Reach the Winning Milestones</b><p>Keep solving words to achieve <strong>Four Corners</strong> first, then make a <strong>BINGO</strong>. These are achievements along the way—not the end of the game.</p></div>
+    <div class="step goalStep finishStep"><b>6. Finish with Cover All</b><p>Continue playing after Four Corners and BINGO until every playable tile is solved. <strong>Cover All completes the game.</strong></p></div>
   </div>
+  <div class="goalBanner"><strong>🏆 Your path to completing the game:</strong> Four Corners → BINGO → Cover All</div>
 
   <div class="built" id="modes">
     <h2>🎮 Built for More Ways to Play</h2>
@@ -232,6 +270,7 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
       <div class="familyRow"><div class="icon">✅</div><div><b>Correct Answer</b>The tile stays solved and the game advances to the next player.</div></div>
       <div class="familyRow"><div class="icon">❌</div><div><b>Wrong Answer or Time-Out</b>The tile is covered again, the turn ends and the next player's name appears.</div></div>
       <div class="familyRow"><div class="icon">⭐</div><div><b>Covered or Open Board</b>Covered adds suspense; Open lets everyone see all scrambled words. FREE stays visible, and Faith appears on every board.</div></div>
+      <div class="familyRow familyFinish"><div class="icon">🏆</div><div><b>Play Through All Three Milestones</b>Keep going after Four Corners and BINGO. The game is finished when you complete <strong>Cover All</strong> by solving every playable tile.</div></div>
     </div>
     <div class="boardCard">
       <h3>TAKE A LOOK AT THE GAME BOARD</h3>
@@ -246,7 +285,7 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
   <div class="topics">
     <h2>▦ Categories, Themes &amp; Boards</h2>
     <p style="font-size:13px;line-height:1.45;margin:0">
-      Scrambled Word Bingo® includes a growing variety of categories, themes and game boards for different ages, interests, groups and occasions. New choices will continue to be added to keep the game fresh, fun and challenging.
+      Scrambled Word Bingo™ includes a growing variety of categories, themes and game boards for different ages, interests, groups and occasions. New choices will continue to be added to keep the game fresh, fun and challenging.
     </p>
     <div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:linear-gradient(90deg,#eef6ff,#f6edff,#fff7d7);border:1px solid #d7dff0">
       <b style="color:#16368d">More Ways to Play!</b>
@@ -256,7 +295,7 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
 
   <div class="reviewBox" id="reviews">
     <h2>⭐ Player Reviews</h2>
-    <p><b>Enjoying Scrambled Word Bingo®?</b> Tell us about your experience.</p>
+    <p><b>Enjoying Scrambled Word Bingo™?</b> Tell us about your experience.</p>
     <label for="rating">Rating</label>
     <select id="rating"><option>5 Stars</option><option>4 Stars</option><option>3 Stars</option><option>2 Stars</option><option>1 Star</option></select>
     <label for="reviewText">Your Review</label>
@@ -285,7 +324,7 @@ footer{background:var(--navy);color:white;text-align:center;padding:10px;font-si
     <a href="game.html">PLAY SCRAMBLED WORD BINGO® NOW!</a>
   </div>
 </div>
-<footer>© 2026 Pamela Scott – Speak Positivity, LLC • Scrambled Word Bingo®</footer>
+<footer>© 2026 Pamela Scott – Speak Positivity, LLC • Scrambled Word Bingo™</footer>
 
 <script>
 (function(){
