@@ -731,6 +731,25 @@ button.submit-btn:disabled {
 
 </head>
 <body>
+
+<!-- ONE_TIME_FREE_GAME_RESET_V67_START -->
+<script id="one-time-free-game-reset-v67">
+(function(){
+  const MARKER='swb_test_reset_v67_done';
+  if(localStorage.getItem(MARKER)==='1') return;
+
+  const d=new Date();
+  const today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+
+  // Reset only the free-play test counters/session state.
+  localStorage.setItem('swb_free_day_v48', today);
+  localStorage.setItem('swb_free_used_v48', '0');
+  try{ sessionStorage.removeItem('swb_active_regular_session_v63'); }catch(_){}
+  localStorage.setItem(MARKER,'1');
+})();
+</script>
+<!-- ONE_TIME_FREE_GAME_RESET_V67_END -->
+
 <!-- Scrambled Word Bingo™ Master v0.70: controls above board, scoring restoration, solved-color locks, and guaranteed one-line words -->
 <div class="app">
   <div class="top" id="logo-stage-v061" aria-label="Scrambled Word Bingo logo"></div>
@@ -7629,7 +7648,7 @@ window.SWB_HINT_AUDIT={
 
     document.getElementById("shareGameV32").addEventListener("click",()=>doShare(getShareText()));
     document.getElementById("inviteFriendsV32").addEventListener("click",()=>doShare(getShareText()));
-    document.getElementById("bragAchievementV32").addEventListener("click",()=>doShare(getBragText()));
+    /* Brag sharing handled by V69 direct-share controller. */
   }
 
   function showBrag(){
@@ -8579,15 +8598,15 @@ window.SWB_HINT_AUDIT={
 
 
 
-<!-- v48: daily free-game allowance + paid game-pack/subscription options -->
+<!-- v62: daily free-game allowance + paid game-pack/subscription options; Solo limit enforcement fixed -->
 <style id="swb-access-v48-style">
-#swbAccessBar{position:fixed;right:12px;bottom:12px;z-index:9994;background:#fff;border:2px solid #6c35b5;border-radius:12px;padding:8px 11px;box-shadow:0 5px 18px #0003;font:700 12px Arial;color:#14235c;max-width:250px}
-#swbAccessBar b{color:#6c35b5}.swb-access-link{border:0;background:transparent;color:#087a31;text-decoration:underline;font-weight:800;cursor:pointer;padding:0 0 0 5px}
+#swbAccessBar{position:fixed;right:8px;bottom:42px;z-index:9994;background:#fff;border:2px solid #6c35b5;border-radius:10px;padding:5px 8px;box-shadow:0 4px 12px #0003;font:700 10px Arial;color:#14235c;max-width:190px;line-height:1.15;text-align:center}
+#swbAccessBar b{color:#6c35b5}.swb-access-link{display:block;margin:2px auto 0;border:0;background:transparent;color:#087a31;text-decoration:underline;font-weight:800;font-size:10px;line-height:1.1;cursor:pointer;padding:0}
 #swbPaywallV48{position:fixed;inset:0;z-index:10020;background:#07133ccc;display:none;align-items:center;justify-content:center;padding:18px}
 #swbPaywallV48.show{display:flex}.swb-pay-card{width:min(560px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;border:4px solid #7a42c4;box-shadow:0 18px 60px #0007;padding:20px;text-align:center;color:#17204c}
 .swb-pay-card h2{margin:0 0 5px;color:#6d2eb4}.swb-pay-card .freeDaily{background:linear-gradient(90deg,#fff5b9,#e9f8ff,#f3e8ff);border:1px solid #d7c76a;border-radius:10px;padding:9px;margin:10px 0 14px;font-weight:800}
 .swb-price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.swb-price{border:2px solid #d8dcec;border-radius:12px;padding:13px 8px;background:#fafbff}.swb-price.best{border-color:#18a64a;background:#effff3}.swb-price h3{margin:0 0 4px;font-size:16px}.swb-price .price{font-size:23px;font-weight:900;color:#17398f}.swb-price small{display:block;min-height:34px}.swb-price button{margin-top:9px;width:100%;border:0;border-radius:8px;padding:9px 5px;background:#20a84d;color:#fff;font-weight:900;cursor:pointer}.swb-price button.sub{background:#6c35b5}.swb-pay-note{font-size:11px;color:#5f6477;margin:12px 0 4px;line-height:1.35}.swb-close-pay{margin-top:12px;border:0;border-radius:8px;background:#666;color:#fff;padding:8px 18px;font-weight:800;cursor:pointer}
-@media(max-width:650px){.swb-price-grid{grid-template-columns:1fr}.swb-price small{min-height:0}#swbAccessBar{left:8px;right:8px;bottom:6px;max-width:none;text-align:center}}
+@media(max-width:650px){.swb-price-grid{grid-template-columns:1fr}.swb-price small{min-height:0}#swbAccessBar{left:8px;right:8px;bottom:44px;max-width:none;text-align:center}}
 </style>
 <div id="swbAccessBar" aria-live="polite"><span id="swbAccessText">Free Games Remaining Today: 3 of 3</span><button class="swb-access-link" id="swbAccessOptions" type="button">More Play Options</button></div>
 <div id="swbPaywallV48" role="dialog" aria-modal="true" aria-labelledby="swbPayTitle">
@@ -8603,15 +8622,19 @@ window.SWB_HINT_AUDIT={
   <button class="swb-close-pay" id="swbClosePayV48" type="button">Not Now</button>
  </div>
 </div>
-<script id="swb-access-v48-script">
+<script id="swb-access-v63-script">
 (function(){
  const DAILY_LIMIT=3, DAY_KEY='swb_free_day_v48', USED_KEY='swb_free_used_v48', CREDIT_KEY='swb_paid_game_credits_v48', MEMBER_KEY='swb_monthly_member_v48';
+ const ACTIVE_KEY='swb_active_regular_session_v63';
  const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
- function normalize(){if(localStorage.getItem(DAY_KEY)!==today()){localStorage.setItem(DAY_KEY,today());localStorage.setItem(USED_KEY,'0')}}
+ function normalize(){if(localStorage.getItem(DAY_KEY)!==today()){localStorage.setItem(DAY_KEY,today());localStorage.setItem(USED_KEY,'0');try{sessionStorage.removeItem(ACTIVE_KEY)}catch(_){}}}
  function used(){normalize();return Math.max(0,Number(localStorage.getItem(USED_KEY)||0))}
  function credits(){return Math.max(0,Number(localStorage.getItem(CREDIT_KEY)||0))}
  function member(){return localStorage.getItem(MEMBER_KEY)==='active'}
  function remaining(){return Math.max(0,DAILY_LIMIT-used())}
+ function activeSession(){try{return sessionStorage.getItem(ACTIVE_KEY)===today()}catch(_){return false}}
+ function setActive(){try{sessionStorage.setItem(ACTIVE_KEY,today())}catch(_){}}
+ function clearActive(){try{sessionStorage.removeItem(ACTIVE_KEY)}catch(_){}}
  function update(){
    const el=document.getElementById('swbAccessText');if(!el)return;
    if(member())el.textContent='Unlimited Monthly Membership: ACTIVE';
@@ -8621,14 +8644,30 @@ window.SWB_HINT_AUDIT={
  function hide(){const m=document.getElementById('swbPaywallV48');if(m)m.classList.remove('show')}
  function canStart(){normalize();return member()||remaining()>0||credits()>0}
  function consume(){
-   normalize();if(member())return true;
-   if(remaining()>0){localStorage.setItem(USED_KEY,String(used()+1));update();return true}
-   if(credits()>0){localStorage.setItem(CREDIT_KEY,String(credits()-1));update();return true}
+   normalize();
+   if(member()){setActive();return true}
+   if(remaining()>0){localStorage.setItem(USED_KEY,String(used()+1));setActive();update();return true}
+   if(credits()>0){localStorage.setItem(CREDIT_KEY,String(credits()-1));setActive();update();return true}
    show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Monthly membership to keep playing.');return false;
  }
- // Count the currently loaded regular Solo board as today's first free game once per calendar day.
+ function isDaily(){try{return typeof playMode!=='undefined' && playMode==='daily'}catch(_){return false}}
+ function isSolo(){try{return typeof playMode!=='undefined' && playMode==='solo'}catch(_){return true}}
+ function blockEvent(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Monthly membership to keep playing.')}
+ function beginNewRegular(e){
+   if(isDaily())return true;
+   clearActive();
+   if(!consume()){if(e)blockEvent(e);return false}
+   return true;
+ }
+ // Count the first regular Solo board opened today as one free game.
  const initialKey='swb_initial_game_counted_v48_'+today();
- if(!localStorage.getItem(initialKey)){localStorage.setItem(initialKey,'1');localStorage.setItem(USED_KEY,String(Math.min(DAILY_LIMIT,used()+1)))}
+ if(!localStorage.getItem(initialKey)){
+   localStorage.setItem(initialKey,'1');
+   if(canStart())consume();
+ } else if(used()<DAILY_LIMIT || credits()>0 || member()) {
+   // A reload in the same tab may continue an already-authorized game.
+   if(activeSession())setActive();
+ }
  document.getElementById('swbAccessOptions')?.addEventListener('click',()=>show('Choose the option that fits how you want to play. Payment checkout will be connected next.'));
  document.getElementById('swbClosePayV48')?.addEventListener('click',hide);
  document.getElementById('swbPaywallV48')?.addEventListener('click',e=>{if(e.target.id==='swbPaywallV48')hide()});
@@ -8637,16 +8676,50 @@ window.SWB_HINT_AUDIT={
    const label=p==='5'?'5-Game Pack for $1.99':p==='10'?'10-Game Pack for $2.99':'Unlimited Monthly Membership for $5.99/month';
    document.getElementById('swbPayNote').textContent=label+' selected. Secure checkout is not connected yet, so you have not been charged.';
  }));
- // Gate actions that create a new regular game. Daily Puzzle is deliberately excluded.
+
+ // Every action that creates a fresh regular game must pass the same limit check.
  document.addEventListener('click',function(e){
-   const b=e.target.closest && e.target.closest('#newGame,#startFamilyGame,#soloMode');if(!b)return;
-   try{if(typeof playMode!=='undefined' && playMode==='daily' && b.id==='newGame')return}catch(_){ }
-   if(b.id==='soloMode'){try{if(typeof playMode!=='undefined' && playMode==='solo')return}catch(_){}}
-   if(!canStart()){e.preventDefault();e.stopImmediatePropagation();show();return}
-   if(!consume()){e.preventDefault();e.stopImmediatePropagation()}
+   const b=e.target.closest && e.target.closest('#newGame,#startFamilyGame,#soloMode,#playAgain');if(!b)return;
+   if(isDaily() && b.id==='newGame')return;
+   beginNewRegular(e);
  },true);
+
+ // Changing Theme or Board also creates a fresh Solo board, so it cannot bypass the limit.
+ let priorTheme='', priorBoard='';
+ const theme=document.getElementById('theme'), board=document.getElementById('category');
+ if(theme){theme.addEventListener('focus',()=>{priorTheme=theme.value},true);theme.addEventListener('mousedown',()=>{priorTheme=theme.value},true)}
+ if(board){board.addEventListener('focus',()=>{priorBoard=board.value},true);board.addEventListener('mousedown',()=>{priorBoard=board.value},true)}
+ document.addEventListener('change',function(e){
+   if(isDaily() || !isSolo())return;
+   if(e.target!==theme && e.target!==board)return;
+   clearActive();
+   if(!consume()){
+     if(e.target===theme && priorTheme)theme.value=priorTheme;
+     if(e.target===board && priorBoard)board.value=priorBoard;
+     blockEvent(e);
+   }
+ },true);
+
+ // If all three games are already used and there is no authorized current Solo session,
+ // the existing board cannot be played by simply reopening the page.
+ document.addEventListener('click',function(e){
+   if(!isSolo() || isDaily() || member() || credits()>0 || remaining()>0 || activeSession())return;
+   if(e.target.closest && e.target.closest('#board .tile,#submit,#hint'))blockEvent(e);
+ },true);
+ document.addEventListener('keydown',function(e){
+   if(e.key!=='Enter' || !isSolo() || isDaily() || member() || credits()>0 || remaining()>0 || activeSession())return;
+   const a=document.getElementById('answer');
+   if(e.target===a)blockEvent(e);
+ },true);
+
+ // Completing a Solo game ends that authorized session. The next board must use another game credit.
+ const summary=document.getElementById('summaryModal');
+ if(summary){new MutationObserver(()=>{
+   try{if(summary.classList.contains('show') && isSolo())clearActive()}catch(_){ }
+ }).observe(summary,{attributes:true,attributeFilter:['class']})}
+
  update();
- window.SWBAccessV48={update,show,hide,remaining,credits,member,canStart,consume};
+ window.SWBAccessV48={update,show,hide,remaining,credits,member,canStart,consume,activeSession,clearActive};
 })();
 </script>
 
@@ -8778,6 +8851,582 @@ window.SWB_HINT_AUDIT={
   });
 })();
 </script>
+
+<style id="swb-access-footer-clearance-v60">
+/* Keep the free-game counter clear of the copyright/footer line. */
+#swbAccessBar{bottom:42px!important;}
+@media(max-width:650px){#swbAccessBar{bottom:44px!important;}}
+</style>
+
+<!-- DIRECT_INVITE_SHARE_V64_START -->
+<script id="direct-invite-share-v64">
+(function(){
+  const SHARE_URL = "https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/";
+  const SHARE_TEXT = "Come play Scrambled Word Bingo™ with me! It’s a fun word game with Solo, Family Game Night, and a free Daily Puzzle.";
+  const SHARE_TITLE = "Scrambled Word Bingo™";
+
+  function getInviteButton(){
+    return Array.from(document.querySelectorAll('button, a, [role="button"]'))
+      .find(el => /invite friends to play/i.test((el.textContent || '').trim()));
+  }
+
+  function ensureFallbackModal(){
+    let modal = document.getElementById('swbInviteFallbackV64');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'swbInviteFallbackV64';
+    modal.innerHTML = `
+      <div class="swbInviteBackdropV64"></div>
+      <div class="swbInviteCardV64" role="dialog" aria-modal="true" aria-labelledby="swbInviteTitleV64">
+        <button type="button" class="swbInviteCloseV64" aria-label="Close">×</button>
+        <h3 id="swbInviteTitleV64">Invite Friends to Play</h3>
+        <p class="swbInviteLeadV64">Choose how you want to send the invitation.</p>
+        <button type="button" class="swbInviteActionV64 swbInviteTextV64">💬 Send by Text Message</button>
+        <button type="button" class="swbInviteActionV64 swbInviteEmailV64">✉️ Send by Email</button>
+        <button type="button" class="swbInviteActionV64 swbInviteShareV64">📲 More Sharing Options</button>
+        <textarea readonly class="swbInviteCopyV64"></textarea>
+        <button type="button" class="swbInviteCopyBtnV64">Copy Invitation</button>
+        <div class="swbInviteStatusV64" aria-live="polite"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const style = document.createElement('style');
+    style.id = 'direct-invite-share-v64-style';
+    style.textContent = `
+      #swbInviteFallbackV64{position:fixed;inset:0;z-index:999999;display:none}
+      #swbInviteFallbackV64.open{display:block}
+      .swbInviteBackdropV64{position:absolute;inset:0;background:rgba(2,10,40,.72)}
+      .swbInviteCardV64{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,430px);background:#fff;color:#09245a;border:4px solid #ffbe18;border-radius:18px;padding:18px;box-shadow:0 16px 45px rgba(0,0,0,.35);font-family:inherit}
+      .swbInviteCardV64 h3{margin:0 34px 6px;text-align:center;font-size:24px}
+      .swbInviteLeadV64{text-align:center;margin:0 0 14px;font-weight:700}
+      .swbInviteCloseV64{position:absolute;right:10px;top:8px;border:0;background:transparent;font-size:30px;cursor:pointer;color:#66249a}
+      .swbInviteActionV64,.swbInviteCopyBtnV64{display:block;width:100%;margin:9px 0;padding:12px 14px;border:0;border-radius:10px;font-weight:800;font-size:17px;cursor:pointer}
+      .swbInviteTextV64{background:#18b84d;color:#fff}
+      .swbInviteEmailV64{background:#1d6dcc;color:#fff}
+      .swbInviteShareV64{background:#7a3ad1;color:#fff}
+      .swbInviteCopyV64{width:100%;height:94px;box-sizing:border-box;border:2px solid #adc0de;border-radius:9px;padding:9px;font:inherit;color:#18335d;background:#f7f9ff;resize:none;margin-top:8px}
+      .swbInviteCopyBtnV64{background:#ffbd18;color:#071a4d}
+      .swbInviteStatusV64{text-align:center;margin-top:8px;font-weight:700;min-height:20px}
+    `;
+    document.head.appendChild(style);
+
+    const fullMessage = `${SHARE_TEXT}\n\nPlay here: ${SHARE_URL}`;
+    modal.querySelector('.swbInviteCopyV64').value = fullMessage;
+
+    const close = () => modal.classList.remove('open');
+    modal.querySelector('.swbInviteCloseV64').addEventListener('click', close);
+    modal.querySelector('.swbInviteBackdropV64').addEventListener('click', close);
+
+    modal.querySelector('.swbInviteTextV64').addEventListener('click', function(){
+      window.location.href = `sms:?&body=${encodeURIComponent(fullMessage)}`;
+    });
+
+    modal.querySelector('.swbInviteEmailV64').addEventListener('click', function(){
+      window.location.href = `mailto:?subject=${encodeURIComponent(SHARE_TITLE)}&body=${encodeURIComponent(fullMessage)}`;
+    });
+
+    modal.querySelector('.swbInviteShareV64').addEventListener('click', async function(){
+      const status = modal.querySelector('.swbInviteStatusV64');
+      if (navigator.share) {
+        try {
+          await navigator.share({title: SHARE_TITLE, text: SHARE_TEXT, url: SHARE_URL});
+          close();
+        } catch (err) {
+          if (!err || err.name !== "AbortError") {
+            status.textContent = "Choose Text, Email, or Copy Invitation.";
+          }
+        }
+      } else {
+        status.textContent = "Your browser does not support the share menu. Choose Text, Email, or Copy Invitation.";
+      }
+    });
+
+    modal.querySelector('.swbInviteCopyBtnV64').addEventListener('click', async function(){
+      const status = modal.querySelector('.swbInviteStatusV64');
+      const ta = modal.querySelector('.swbInviteCopyV64');
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(fullMessage);
+        } else {
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+        }
+        status.textContent = "Invitation copied.";
+      } catch (e) {
+        ta.focus();
+        ta.select();
+        status.textContent = "Use your device's Copy command.";
+      }
+    });
+
+    return modal;
+  }
+
+  async function handleInviteClick(ev){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+
+    if (navigator.share && location.protocol !== 'file:') {
+      try {
+        await navigator.share({title: SHARE_TITLE, text: SHARE_TEXT, url: SHARE_URL});
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
+      }
+    }
+
+    ensureFallbackModal().classList.add('open');
+  }
+
+  function install(){
+    const btn = getInviteButton();
+    if (!btn || btn.dataset.swbInviteV64 === '1') return;
+    btn.dataset.swbInviteV64 = '1';
+    btn.addEventListener('click', handleInviteClick, true);
+  }
+
+  install();
+  new MutationObserver(install).observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
+<!-- DIRECT_INVITE_SHARE_V64_END -->
+
+
+<!-- DIRECT_INVITE_FINAL_V65_START -->
+<script id="direct-invite-final-v65">
+(function(){
+  const SHARE_URL = "https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/";
+  const SHARE_TEXT = "Come play Scrambled Word Bingo™ with me! It’s a fun word game with Solo, Family Game Night, and a free Daily Puzzle.";
+  const SHARE_TITLE = "Scrambled Word Bingo™";
+
+  function fullMessage(){
+    return SHARE_TEXT + "\n\nPlay here: " + SHARE_URL;
+  }
+
+  function openDirectChoices(){
+    let modal = document.getElementById("swbDirectInviteV65");
+    if(!modal){
+      modal = document.createElement("div");
+      modal.id = "swbDirectInviteV65";
+      modal.innerHTML = `
+        <div class="swbDIBackdrop"></div>
+        <div class="swbDICard" role="dialog" aria-modal="true" aria-labelledby="swbDITitle">
+          <button type="button" class="swbDIClose" aria-label="Close">×</button>
+          <h2 id="swbDITitle">Invite Friends to Play</h2>
+          <p>Choose how you want to send the invitation.</p>
+          <button type="button" class="swbDIButton swbDIText">💬 Send by Text Message</button>
+          <button type="button" class="swbDIButton swbDIEmail">✉️ Send by Email</button>
+          <button type="button" class="swbDIButton swbDIMore">📲 More Sharing Options</button>
+          <textarea class="swbDIMessage" readonly></textarea>
+          <button type="button" class="swbDIButton swbDICopy">Copy Invitation</button>
+          <div class="swbDIStatus" aria-live="polite"></div>
+        </div>`;
+      document.body.appendChild(modal);
+
+      const style = document.createElement("style");
+      style.id = "direct-invite-final-v65-style";
+      style.textContent = `
+        #swbDirectInviteV65{position:fixed;inset:0;z-index:1000000;display:none}
+        #swbDirectInviteV65.open{display:block}
+        .swbDIBackdrop{position:absolute;inset:0;background:rgba(1,8,35,.78)}
+        .swbDICard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,440px);background:#fff;color:#0b2558;border:4px solid #ffc425;border-radius:20px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.42);font-family:inherit}
+        .swbDICard h2{margin:0 36px 6px;text-align:center;font-size:27px}
+        .swbDICard p{text-align:center;margin:0 0 14px;font-weight:800}
+        .swbDIClose{position:absolute;right:10px;top:6px;border:0;background:transparent;color:#6c37c9;font-size:32px;font-weight:900;cursor:pointer}
+        .swbDIButton{display:block;width:100%;margin:9px 0;padding:12px 14px;border:0;border-radius:10px;font:inherit;font-size:17px;font-weight:900;cursor:pointer}
+        .swbDIText{background:#18b957;color:#fff}
+        .swbDIEmail{background:#246dc4;color:#fff}
+        .swbDIMore{background:#7542cf;color:#fff}
+        .swbDICopy{background:#ffc425;color:#082052}
+        .swbDIMessage{display:block;width:100%;height:105px;box-sizing:border-box;margin:12px 0 0;padding:10px;border:2px solid #8ab8fa;border-radius:10px;background:#f8fbff;color:#162d55;font:inherit;font-size:15px;resize:none}
+        .swbDIStatus{text-align:center;min-height:20px;margin-top:7px;font-weight:800}
+      `;
+      document.head.appendChild(style);
+
+      modal.querySelector(".swbDIMessage").value = fullMessage();
+      const close = () => modal.classList.remove("open");
+      modal.querySelector(".swbDIClose").addEventListener("click", close);
+      modal.querySelector(".swbDIBackdrop").addEventListener("click", close);
+
+      modal.querySelector(".swbDIText").addEventListener("click", function(){
+        window.location.href = "sms:?&body=" + encodeURIComponent(fullMessage());
+      });
+      modal.querySelector(".swbDIEmail").addEventListener("click", function(){
+        window.location.href = "mailto:?subject=" + encodeURIComponent(SHARE_TITLE) +
+          "&body=" + encodeURIComponent(fullMessage());
+      });
+      modal.querySelector(".swbDIMore").addEventListener("click", async function(){
+        const status = modal.querySelector(".swbDIStatus");
+        if(navigator.share){
+          try{
+            await navigator.share({title:SHARE_TITLE,text:SHARE_TEXT,url:SHARE_URL});
+            close();
+          }catch(err){
+            if(!err || err.name !== "AbortError"){
+              status.textContent = "Choose Text, Email, or Copy Invitation.";
+            }
+          }
+        }else{
+          status.textContent = "This browser does not offer a share menu. Choose Text, Email, or Copy Invitation.";
+        }
+      });
+      modal.querySelector(".swbDICopy").addEventListener("click", async function(){
+        const status = modal.querySelector(".swbDIStatus");
+        const ta = modal.querySelector(".swbDIMessage");
+        try{
+          if(navigator.clipboard && window.isSecureContext){
+            await navigator.clipboard.writeText(fullMessage());
+          }else{
+            ta.focus(); ta.select(); document.execCommand("copy");
+          }
+          status.textContent = "Invitation copied.";
+        }catch(e){
+          ta.focus(); ta.select();
+          status.textContent = "Use your device's Copy command.";
+        }
+      });
+    }
+    modal.classList.add("open");
+  }
+
+  async function directInvite(){
+    // On the live HTTPS website, open the device's native share sheet first.
+    if(location.protocol === "https:" && navigator.share){
+      try{
+        await navigator.share({title:SHARE_TITLE,text:SHARE_TEXT,url:SHARE_URL});
+        return;
+      }catch(err){
+        if(err && err.name === "AbortError") return;
+      }
+    }
+    // Local files and browsers without native share get explicit direct-send options.
+    openDirectChoices();
+  }
+
+  function replaceInviteButton(){
+    const old = document.getElementById("inviteFriendsV32") ||
+      Array.from(document.querySelectorAll("button,a,[role='button']")).find(
+        el => /invite friends to play/i.test((el.textContent || "").trim())
+      );
+    if(!old || old.dataset.swbInviteFinalV65 === "1") return;
+    const fresh = old.cloneNode(true);
+    fresh.dataset.swbInviteFinalV65 = "1";
+    fresh.removeAttribute("onclick");
+    fresh.href && fresh.removeAttribute("href");
+    old.replaceWith(fresh);
+    fresh.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      directInvite();
+    });
+  }
+
+  replaceInviteButton();
+  setTimeout(replaceInviteButton, 50);
+  setTimeout(replaceInviteButton, 250);
+  setTimeout(replaceInviteButton, 800);
+})();
+</script>
+<!-- DIRECT_INVITE_FINAL_V65_END -->
+
+
+<!-- ACCESS_BAR_SMART_VISIBILITY_V66_START -->
+<style id="swb-access-smart-v66-style">
+  /* Keep the counter out of the way during normal play. */
+  #swbAccessBar.swb-smart-hidden-v66{
+    display:none !important;
+  }
+  #swbAccessBar.swb-smart-show-v66{
+    display:block !important;
+  }
+</style>
+<script id="swb-access-smart-v66-script">
+(function(){
+  const bar = document.getElementById('swbAccessBar');
+  const textEl = document.getElementById('swbAccessText');
+  const summary = document.getElementById('summaryModal');
+  const USED_KEY='swb_free_used_v48';
+  const DAY_KEY='swb_free_day_v48';
+  const ACTIVE_KEY='swb_active_regular_session_v63';
+  let hideTimer = null;
+  let lastSummaryOpen = false;
+
+  if(!bar || !textEl) return;
+
+  function today(){
+    const d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function normalize(){
+    if(localStorage.getItem(DAY_KEY)!==today()){
+      localStorage.setItem(DAY_KEY,today());
+      localStorage.setItem(USED_KEY,'0');
+    }
+  }
+  function used(){
+    normalize();
+    return Math.max(0,Number(localStorage.getItem(USED_KEY)||0));
+  }
+  function remaining(){
+    return Math.max(0,3-used());
+  }
+  function activeSession(){
+    try{return sessionStorage.getItem(ACTIVE_KEY)===today()}catch(_){return false}
+  }
+  function isDaily(){
+    try{return typeof playMode!=='undefined' && playMode==='daily'}catch(_){return false}
+  }
+
+  function hideBar(){
+    if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
+    bar.classList.remove('swb-smart-show-v66');
+    bar.classList.add('swb-smart-hidden-v66');
+  }
+
+  function showBar(message, persistent){
+    if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
+    if(message) textEl.textContent=message;
+    bar.classList.remove('swb-smart-hidden-v66');
+    bar.classList.add('swb-smart-show-v66');
+
+    if(!persistent){
+      hideTimer=setTimeout(hideBar,5000);
+    }
+  }
+
+  function summaryIsOpen(){
+    return !!(summary && summary.classList.contains('show'));
+  }
+
+  function onGameComplete(){
+    if(isDaily()) return;
+    const rem=remaining();
+
+    if(rem===2){
+      showBar('Game 1 complete • 2 free games left today', false);
+    }else if(rem===1){
+      showBar('Game 2 complete • 1 free game left today', false);
+    }else if(rem===0){
+      showBar("You've used all 3 free games for today.", true);
+    }else{
+      hideBar();
+    }
+  }
+
+  // At the start of the first free game, show a short reminder, then get out of the way.
+  function initialState(){
+    const rem=remaining();
+
+    // If all three games were already completed and the player returns later,
+    // keep the notice visible because no more regular free games are available.
+    if(rem===0 && !activeSession()){
+      showBar("You've used all 3 free games for today.", true);
+      return;
+    }
+
+    if(used()===1 && activeSession() && !isDaily()){
+      showBar('Free Game 1 of 3 started • 2 free games remain today', false);
+      return;
+    }
+
+    hideBar();
+  }
+
+  // Existing access logic updates this text whenever a new game is consumed.
+  // Use that only to detect state changes; do not leave the box on-screen.
+  new MutationObserver(function(){
+    const rem=remaining();
+
+    // Third game has just started. Keep the box hidden while they play
+    // so it does not cover Family Game Night player information.
+    if(rem===0 && activeSession() && !summaryIsOpen()){
+      hideBar();
+      return;
+    }
+
+    // The first game start gets a brief notice.
+    if(rem===2 && activeSession() && used()===1 && !summaryIsOpen()){
+      showBar('Free Game 1 of 3 started • 2 free games remain today', false);
+    }
+  }).observe(textEl,{childList:true,characterData:true,subtree:true});
+
+  // When the Cover All/game summary opens, show the remaining-games notice.
+  if(summary){
+    new MutationObserver(function(){
+      const open=summaryIsOpen();
+      if(open && !lastSummaryOpen) onGameComplete();
+      lastSummaryOpen=open;
+    }).observe(summary,{attributes:true,attributeFilter:['class']});
+  }
+
+  // More Play Options should still work whenever the persistent final notice is shown.
+  initialState();
+
+  window.SWBAccessSmartV66={showBar,hideBar,onGameComplete};
+})();
+</script>
+<!-- ACCESS_BAR_SMART_VISIBILITY_V66_END -->
+
+
+
+<!-- DIRECT_BRAG_SHARE_V69_START -->
+<script id="direct-brag-share-v69">
+(function(){
+  const SHARE_URL = "https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/";
+  const SHARE_TITLE = "My Scrambled Word Bingo™ Accomplishment";
+
+  function getBragButton(){
+    return document.getElementById('bragAchievementV32') ||
+      Array.from(document.querySelectorAll('button,a,[role="button"]')).find(function(el){
+        return /brag.*accomplishment/i.test((el.textContent || '').trim());
+      });
+  }
+
+  function getText(id, fallbackSelector){
+    const el = document.getElementById(id) || (fallbackSelector ? document.querySelector(fallbackSelector) : null);
+    return el ? (el.textContent || '').trim() : '';
+  }
+
+  function resultMessage(){
+    const score = getText('score','[id*="score" i]');
+    const time = getText('time','[id*="time" i]');
+    let msg = "I just completed Scrambled Word Bingo™! Think you can beat me?";
+    if(score && /\d/.test(score)) msg += "\nScore: " + score;
+    if(time && /\d/.test(time)) msg += "\nTime: " + time;
+    msg += "\n\nPlay here: " + SHARE_URL;
+    return msg;
+  }
+
+  function createModal(){
+    let modal = document.getElementById('swbBragDirectV69');
+    if(modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'swbBragDirectV69';
+    modal.innerHTML = `
+      <div class="swbBragBackdropV69"></div>
+      <div class="swbBragCardV69" role="dialog" aria-modal="true" aria-labelledby="swbBragTitleV69">
+        <button type="button" class="swbBragCloseV69" aria-label="Close">×</button>
+        <h2 id="swbBragTitleV69">Brag on My Accomplishment</h2>
+        <p>Send your result directly.</p>
+        <button type="button" class="swbBragBtnV69 swbBragTextV69">💬 Send by Text Message</button>
+        <button type="button" class="swbBragBtnV69 swbBragEmailV69">✉️ Send by Email</button>
+        <button type="button" class="swbBragBtnV69 swbBragShareV69">📲 Open Share Menu</button>
+        <textarea readonly class="swbBragMsgV69"></textarea>
+        <button type="button" class="swbBragBtnV69 swbBragCopyV69">Copy Brag Message</button>
+        <div class="swbBragStatusV69" aria-live="polite"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const style = document.createElement('style');
+    style.id = 'direct-brag-share-v69-style';
+    style.textContent = `
+      #swbBragDirectV69{position:fixed;inset:0;z-index:1000005;display:none}
+      #swbBragDirectV69.open{display:block}
+      .swbBragBackdropV69{position:absolute;inset:0;background:rgba(1,8,35,.78)}
+      .swbBragCardV69{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,440px);background:#fff;color:#0b2558;border:4px solid #ffc425;border-radius:20px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.42);font-family:inherit}
+      .swbBragCardV69 h2{margin:0 36px 6px;text-align:center;font-size:25px}
+      .swbBragCardV69 p{text-align:center;margin:0 0 14px;font-weight:800}
+      .swbBragCloseV69{position:absolute;right:10px;top:6px;border:0;background:transparent;color:#6c37c9;font-size:32px;font-weight:900;cursor:pointer}
+      .swbBragBtnV69{display:block;width:100%;margin:9px 0;padding:12px 14px;border:0;border-radius:10px;font:inherit;font-size:17px;font-weight:900;cursor:pointer}
+      .swbBragTextV69{background:#18b957;color:#fff}
+      .swbBragEmailV69{background:#246dc4;color:#fff}
+      .swbBragShareV69{background:#7542cf;color:#fff}
+      .swbBragCopyV69{background:#ffc425;color:#082052}
+      .swbBragMsgV69{display:block;width:100%;height:112px;box-sizing:border-box;margin:12px 0 0;padding:10px;border:2px solid #8ab8fa;border-radius:10px;background:#f8fbff;color:#162d55;font:inherit;font-size:15px;resize:none}
+      .swbBragStatusV69{text-align:center;min-height:20px;margin-top:7px;font-weight:800}
+    `;
+    document.head.appendChild(style);
+
+    const close = () => modal.classList.remove('open');
+    modal.querySelector('.swbBragCloseV69').addEventListener('click', close);
+    modal.querySelector('.swbBragBackdropV69').addEventListener('click', close);
+
+    modal.querySelector('.swbBragTextV69').addEventListener('click', function(){
+      window.location.href = 'sms:?body=' + encodeURIComponent(resultMessage());
+    });
+
+    modal.querySelector('.swbBragEmailV69').addEventListener('click', function(){
+      window.location.href =
+        'mailto:?subject=' + encodeURIComponent(SHARE_TITLE) +
+        '&body=' + encodeURIComponent(resultMessage());
+    });
+
+    modal.querySelector('.swbBragShareV69').addEventListener('click', async function(){
+      const status = modal.querySelector('.swbBragStatusV69');
+      if(navigator.share){
+        try{
+          await navigator.share({
+            title: SHARE_TITLE,
+            text: resultMessage()
+          });
+          close();
+        }catch(err){
+          if(!err || err.name !== 'AbortError'){
+            status.textContent = 'Use Text Message or Email on this device.';
+          }
+        }
+      }else{
+        status.textContent = 'This browser has no system share menu. Use Text Message or Email.';
+      }
+    });
+
+    modal.querySelector('.swbBragCopyV69').addEventListener('click', async function(){
+      const status = modal.querySelector('.swbBragStatusV69');
+      const ta = modal.querySelector('.swbBragMsgV69');
+      const msg = resultMessage();
+      ta.value = msg;
+      try{
+        if(navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(msg);
+        }else{
+          ta.focus(); ta.select(); document.execCommand('copy');
+        }
+        status.textContent = 'Brag message copied.';
+      }catch(_){
+        ta.focus(); ta.select();
+        status.textContent = 'Use your device Copy command.';
+      }
+    });
+
+    return modal;
+  }
+
+  function openBrag(){
+    const modal = createModal();
+    modal.querySelector('.swbBragMsgV69').value = resultMessage();
+    modal.classList.add('open');
+  }
+
+  function install(){
+    const old = getBragButton();
+    if(!old || old.dataset.swbBragV69 === '1') return;
+
+    // Replace the node to remove any old copy-only click listeners.
+    const fresh = old.cloneNode(true);
+    fresh.dataset.swbBragV69 = '1';
+    fresh.removeAttribute('onclick');
+    if(fresh.hasAttribute('href')) fresh.removeAttribute('href');
+    old.replaceWith(fresh);
+
+    fresh.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openBrag();
+    }, true);
+  }
+
+  install();
+  new MutationObserver(install).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+<!-- DIRECT_BRAG_SHARE_V69_END -->
+
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
+
+
+<!-- v61: Direct invite sharing with public website link -->
