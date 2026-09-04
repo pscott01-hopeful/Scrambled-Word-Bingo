@@ -8657,9 +8657,9 @@ window.SWB_HINT_AUDIT={
   <div class="swb-price-grid">
    <div class="swb-price"><h3>5-Game Pack</h3><div class="price">$1.99</div><small>5 additional regular games. Purchased games do not expire.</small><button type="button" data-swb-plan="5">Buy 5 Games</button></div>
    <div class="swb-price best"><h3>10-Game Pack</h3><div class="price">$2.99</div><small><b>BEST VALUE</b><br>10 additional regular games. No expiration.</small><button type="button" data-swb-plan="10">Buy 10 Games</button></div>
-   <div class="swb-price"><h3>Unlimited Monthly</h3><div class="price">$5.99</div><small>Unlimited Solo &amp; Family Game Night play while membership is active.</small><button class="sub" type="button" data-swb-plan="monthly">Choose Unlimited</button></div>
+   <div class="swb-price"><h3>Unlimited Games</h3><div class="price">$5.99</div><small>Unlimited Solo &amp; Family Game Night play.</small><button class="sub" type="button" data-swb-plan="unlimited">Choose Unlimited</button></div>
   </div>
-  <p class="swb-pay-note" id="swbPayNote">Payment checkout is the next connection step. No charge will be made from this preview screen.</p>
+  <p class="swb-pay-note" id="swbPayNote">Choose a package below to continue to secure Square checkout.</p>
   <button class="swb-close-pay" id="swbClosePayV48" type="button">Not Now</button>
  </div>
 </div>
@@ -8678,7 +8678,7 @@ window.SWB_HINT_AUDIT={
  function clearActive(){try{sessionStorage.removeItem(ACTIVE_KEY)}catch(_){}}
  function update(){
    const el=document.getElementById('swbAccessText');if(!el)return;
-   if(member())el.textContent='Unlimited Monthly Membership: ACTIVE';
+   if(member())el.textContent='Unlimited Games: ACTIVE';
    else el.textContent='Free Games Remaining Today: '+remaining()+' of 3'+(credits()?' • Extra Games: '+credits():'');
  }
  function show(msg){const m=document.getElementById('swbPaywallV48');if(m)m.classList.add('show');if(msg){const n=document.getElementById('swbPayNote');if(n)n.textContent=msg}}
@@ -8689,11 +8689,11 @@ window.SWB_HINT_AUDIT={
    if(member()){setActive();return true}
    if(remaining()>0){localStorage.setItem(USED_KEY,String(used()+1));setActive();update();return true}
    if(credits()>0){localStorage.setItem(CREDIT_KEY,String(credits()-1));setActive();update();return true}
-   show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Monthly membership to keep playing.');return false;
+   show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Games to keep playing.');return false;
  }
  function isDaily(){try{return typeof playMode!=='undefined' && playMode==='daily'}catch(_){return false}}
  function isSolo(){try{return typeof playMode!=='undefined' && playMode==='solo'}catch(_){return true}}
- function blockEvent(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Monthly membership to keep playing.')}
+ function blockEvent(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show('You have used today’s 3 free regular games. Choose an additional game pack or Unlimited Games to keep playing.')}
  function beginNewRegular(e){
    if(isDaily())return true;
    clearActive();
@@ -8709,13 +8709,25 @@ window.SWB_HINT_AUDIT={
    // A reload in the same tab may continue an already-authorized game.
    if(activeSession())setActive();
  }
- document.getElementById('swbAccessOptions')?.addEventListener('click',()=>show('Choose the option that fits how you want to play. Payment checkout will be connected next.'));
+ document.getElementById('swbAccessOptions')?.addEventListener('click',()=>show('Choose the option that fits how you want to play.'));
  document.getElementById('swbClosePayV48')?.addEventListener('click',hide);
  document.getElementById('swbPaywallV48')?.addEventListener('click',e=>{if(e.target.id==='swbPaywallV48')hide()});
+ const SWB_SQUARE_LINKS={
+   '5':'https://square.link/u/7X5ZmNJt',
+   '10':'https://square.link/u/RV7zUteD',
+   'unlimited':'https://square.link/u/7zkYOD3M'
+ };
  document.querySelectorAll('[data-swb-plan]').forEach(b=>b.addEventListener('click',()=>{
    const p=b.getAttribute('data-swb-plan');
-   const label=p==='5'?'5-Game Pack for $1.99':p==='10'?'10-Game Pack for $2.99':'Unlimited Monthly Membership for $5.99/month';
-   document.getElementById('swbPayNote').textContent=label+' selected. Secure checkout is not connected yet, so you have not been charged.';
+   const url=SWB_SQUARE_LINKS[p];
+   const label=p==='5'?'5-Game Pack for $1.99':p==='10'?'10-Game Pack for $2.99':'Unlimited Games for $5.99';
+   if(!url){
+     document.getElementById('swbPayNote').textContent='Checkout link is unavailable. Please try again.';
+     return;
+   }
+   try{localStorage.setItem('swb_pending_purchase_v70',p)}catch(_){}
+   document.getElementById('swbPayNote').textContent='Opening secure Square checkout for '+label+'...';
+   window.location.assign(url);
  }));
 
  // Every action that creates a fresh regular game must pass the same limit check.
