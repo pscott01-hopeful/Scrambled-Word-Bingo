@@ -729,6 +729,47 @@ button.submit-btn:disabled {
 }
 </style>
 
+
+<style id="v69-iphone-safari-stability-patch">
+/* Carries the prior iPhone/Safari mobile layout fix into the current v69 game. */
+@media (max-width:820px){
+  html,body{
+    min-height:100%!important;
+    height:auto!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch;
+  }
+  body{position:static!important;}
+  .app{
+    min-height:100vh!important;
+    min-height:100dvh!important;
+    height:auto!important;
+    overflow:visible!important;
+  }
+  .arcade-layout{
+    width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    overflow:visible!important;
+  }
+  .arcade-center{
+    width:100%!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+  #board.board{
+    display:grid!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    visibility:visible!important;
+    opacity:1!important;
+    flex:none!important;
+  }
+  #selectedDisplay:empty::before{content:""!important;}
+}
+</style>
 </head>
 <body>
 
