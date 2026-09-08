@@ -9581,8 +9581,17 @@ window.SWB_HINT_AUDIT={
   async function reconcilePurchaseReturn(){
     const pending=pendingPurchase();
     if(!pending){await refreshBalance({quiet:true});return}
+    if(pending.started && Date.now()-Number(pending.started)>30*60*1000){
+      localStorage.removeItem(PENDING_KEY);
+      await refreshBalance({quiet:true});
+      return;
+    }
 
-    show('Confirming your Square payment and updating your games...');
+    // Never open the purchase modal automatically during page startup or after returning from Square.
+    // The modal opens only when the player clicks GET MORE GAMES or when access is actually exhausted.
+    hide();
+    const message=document.getElementById('message');
+    if(message){message.textContent='Confirming your Square payment and updating your games...';message.className=''}
     const started=Date.now();
     let latest=null;
     for(let attempt=0;attempt<8;attempt++){
@@ -9595,7 +9604,7 @@ window.SWB_HINT_AUDIT={
         localStorage.removeItem(PENDING_KEY);
         hide();
         const msg=latest.unlimited?'Unlimited Games are now active.':'Your purchased games have been added.';
-        const message=document.getElementById('message');if(message){message.textContent=msg;message.className='good'}
+        if(message){message.textContent=msg;message.className='good'}
         return;
       }
       if(Date.now()-started>16000)break;
