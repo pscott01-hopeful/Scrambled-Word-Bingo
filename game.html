@@ -135,6 +135,9 @@ border-radius:24px;padding:28px;text-align:center;box-shadow:0 18px 60px rgba(0,
 .mode-pill{display:inline-flex;gap:4px;align-items:center;background:#eef4ff;border:1px solid #c5d3e8;border-radius:999px;padding:4px}
 .mode-pill button{border:0;background:transparent;border-radius:999px;padding:7px 11px;font-weight:900;color:#44556e}
 .mode-pill button.active{background:#164a9a;color:white;box-shadow:0 3px 8px rgba(0,0,0,.16)}
+#swbGetMoreGamesTop{display:block!important;margin:6px 0 8px!important;padding:9px 12px!important;border:0!important;border-radius:10px!important;background:#6c35b5!important;color:#fff!important;font-weight:900!important;cursor:pointer!important;box-shadow:0 2px 6px rgba(0,0,0,.18)!important;width:100%!important;max-width:220px!important}
+#swbGetMoreGamesTop:hover{filter:brightness(1.06)}
+@media (max-width:640px){#swbGetMoreGamesTop{display:block!important;width:32%!important;min-width:105px!important;max-width:none!important;margin:2px 0 6px auto!important;padding:7px 4px!important;font-size:.68rem!important;line-height:1.05!important}}
 .turn-panel{background:linear-gradient(145deg,#eef7ff,#ffffff);border:2px solid #9ab7dc;border-radius:12px;padding:8px;text-align:center;font-weight:900}
 .turn-panel strong{color:#ff1493;font-size:1.08rem}
 
@@ -819,6 +822,7 @@ button.submit-btn:disabled {
       <button id="familyMode" type="button">Family Game Night</button>
       <button id="dailyMode" type="button">Daily Puzzle</button>
     </span>
+    <button id="swbGetMoreGamesTop" type="button">🎮 GET MORE GAMES</button>
     <span class="mode-pill" aria-label="Timer setting">
       <button id="timerOn" class="active" type="button">Timer On</button>
       <button id="timerOff" type="button">Relaxed</button>
@@ -2339,6 +2343,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
  const selectors=[...setup.querySelectorAll('.theme-selector')]; selectors.forEach(x=>left.append(x));
  const pills=[...setup.querySelectorAll('.mode-pill')];
  if(pills[0]) left.append(pills[0]);
+ const getMoreGames=document.getElementById('swbGetMoreGamesTop'); if(getMoreGames) left.append(getMoreGames);
  const timerBox=document.createElement('div'); timerBox.className='timer-box';
  if(pills[1]) timerBox.append(pills[1]); right.append(timerBox);
  ['newGame','reset','pause','sound','print'].forEach(id=>{const el=document.getElementById(id);if(el)right.append(el)});
@@ -3134,6 +3139,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
     R.solo=document.getElementById("soloMode");
     R.family=document.getElementById("familyMode");
     R.daily=document.getElementById("dailyMode");
+    R.getMoreGames=document.getElementById("swbGetMoreGamesTop");
     R.playWrap=R.solo ? R.solo.closest(".mode-pill") : null;
 
     R.scoreStat=document.getElementById("score")?.closest(".stat");
@@ -3149,7 +3155,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
 
     const required=[
       R.timerOn,R.timerOff,R.newGame,R.reset,R.pause,R.sound,R.printBtn,
-      R.hintPanel,R.solo,R.family,R.daily,
+      R.hintPanel,R.solo,R.family,R.daily,R.getMoreGames,
       R.scoreStat,R.timeStat,R.bestStat,R.categoryStat,R.solvedStat,
       R.themeSel,R.boardSel
     ];
@@ -3166,6 +3172,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
       printBtn:anchor(R.printBtn,"v9-print"),
       hintPanel:anchor(R.hintPanel,"v9-hint"),
       playWrap:anchor(R.playWrap,"v9-play"),
+      getMoreGames:anchor(R.getMoreGames,"v9-get-more-games"),
       scoreStat:anchor(R.scoreStat,"v9-score"),
       timeStat:anchor(R.timeStat,"v9-time"),
       bestStat:anchor(R.bestStat,"v9-best"),
@@ -3221,6 +3228,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
 
       /* Solo / Family / Daily — actual buttons, original handlers preserved */
       R.modeRow.append(R.solo,R.family,R.daily);
+      R.modeRow.insertAdjacentElement("afterend",R.getMoreGames);
 
       /* Family live score panel only appears when family mode itself shows it */
       if(R.familyPanel) R.familyRow.appendChild(R.familyPanel);
@@ -3250,6 +3258,7 @@ summaryObserver.observe(document.getElementById("summaryModal"),{attributes:true
 
       restore(R.playWrap,R.a.playWrap);
       R.playWrap.append(R.solo,R.family,R.daily);
+      restore(R.getMoreGames,R.a.getMoreGames);
 
       restore(R.scoreStat,R.a.scoreStat);
       restore(R.timeStat,R.a.timeStat);
@@ -8642,11 +8651,11 @@ window.SWB_HINT_AUDIT={
 .swb-price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.swb-price{border:2px solid #d8dcec;border-radius:12px;padding:13px 8px;background:#fafbff}.swb-price.best{border-color:#18a64a;background:#effff3}.swb-price h3{margin:0 0 4px;font-size:16px}.swb-price .price{font-size:23px;font-weight:900;color:#17398f}.swb-price small{display:block;min-height:34px}.swb-price button{margin-top:9px;width:100%;border:0;border-radius:8px;padding:9px 5px;background:#20a84d;color:#fff;font-weight:900;cursor:pointer}.swb-price button.sub{background:#6c35b5}.swb-pay-note{font-size:11px;color:#5f6477;margin:12px 0 4px;line-height:1.35}.swb-close-pay{margin-top:12px;border:0;border-radius:8px;background:#666;color:#fff;padding:8px 18px;font-weight:800;cursor:pointer}
 @media(max-width:650px){.swb-price-grid{grid-template-columns:1fr}.swb-price small{min-height:0}#swbAccessBar{left:8px;right:8px;bottom:44px;max-width:none;text-align:center}}
 </style>
-<div id="swbAccessBar" aria-live="polite"><span id="swbAccessText">Free Games Remaining Today: 5 of 5</span><button class="swb-access-link" id="swbAccessOptions" type="button">More Play Options</button></div>
+<div id="swbAccessBar" aria-live="polite"><span id="swbAccessText">Free Games Remaining Today: 3 of 3</span><button class="swb-access-link" id="swbAccessOptions" type="button">Get More Games</button></div>
 <div id="swbPaywallV48" role="dialog" aria-modal="true" aria-labelledby="swbPayTitle">
  <div class="swb-pay-card">
   <h2 id="swbPayTitle">Keep Playing Scrambled Word Bingo™!</h2>
-  <div class="freeDaily">🎁 You receive 5 FREE regular games every day.<br>⭐ The Daily Puzzle is always FREE.</div>
+  <div class="freeDaily">🎁 You receive 3 FREE regular games every day.<br>⭐ The Daily Puzzle is always FREE.</div>
   <div class="swb-price-grid">
    <div class="swb-price"><h3>5-Game Pack</h3><div class="price">$1.99</div><small>5 additional regular games. Purchased games do not expire.</small><button type="button" data-swb-plan="5">Buy 5 Games</button></div>
    <div class="swb-price best"><h3>10-Game Pack</h3><div class="price">$2.99</div><small><b>BEST VALUE</b><br>10 additional regular games. No expiration.</small><button type="button" data-swb-plan="10">Buy 10 Games</button></div>
@@ -9069,7 +9078,7 @@ window.SWB_HINT_AUDIT={
 
 <!-- ACCESS_BAR_SMART_VISIBILITY_V76_START -->
 <style id="swb-access-smart-v76-style">
-  /* Free-games notice: directly below Daily Puzzle; brief while free games remain, persistent after all 5 are used. */
+  /* Free-games notice: directly below Daily Puzzle; brief while free games remain, persistent after all 3 are used. */
   #swbAccessBar{
     position:static !important;
     inset:auto !important;
@@ -9107,7 +9116,7 @@ window.SWB_HINT_AUDIT={
 </style>
 <script id="swb-access-smart-v76-script">
 (function(){
-  const FREE_LIMIT=5;
+  const FREE_LIMIT=3;
   const bar=document.getElementById('swbAccessBar');
   const textEl=document.getElementById('swbAccessText');
   const summary=document.getElementById('summaryModal');
@@ -9158,9 +9167,9 @@ window.SWB_HINT_AUDIT={
     if(isDaily()){hideBar();return;}
     const rem=remaining();
     if(rem<=0){
-      showBar("You've used all 5 free games for today. Choose More Play Options to keep playing.",true);
+      showBar("You've used all 3 free games for today. Choose Get More Games to keep playing.",true);
     }else if(rem===FREE_LIMIT){
-      showBar('5 FREE games available today • A game counts after Cover All is completed.',false);
+      showBar('3 FREE games available today • A game counts after Cover All is completed.',false);
     }else{
       showBar(rem+' FREE game'+(rem===1?'':'s')+' remaining today.',false);
     }
@@ -9172,7 +9181,7 @@ window.SWB_HINT_AUDIT={
     if(rem>0){
       showBar('Game '+done+' complete • '+rem+' free game'+(rem===1?'':'s')+' left today',false);
     }else{
-      showBar("You've used all 5 free games for today. Choose More Play Options to keep playing.",true);
+      showBar("You've used all 3 free games for today. Choose Get More Games to keep playing.",true);
     }
   }
 
@@ -9361,7 +9370,217 @@ window.SWB_HINT_AUDIT={
 
 
 
-\n<!-- SWB_ACCESS_AND_PAYMENT_V74_START -->\n<script id="swb-access-payment-v74">\n(function(){\n  const FREE_LIMIT=5;\n  const CREDIT_KEY='swb_paid_game_credits_v48';\n  const MEMBER_KEY='swb_monthly_member_v48';\n  const PENDING_KEY='swb_pending_purchase_v70';\n  const CLAIMED_LOCAL_KEY='swb_claimed_square_orders_v74';\n  const API_BASE=(window.SWB_FULFILLMENT_API_BASE||'https://scrambled-word-bingo-payments.pamela-5fe.workers.dev').replace(/\/$/,'');\n  const PLAYER_ID_KEY='swb_player_id_v78';\n  const PLAN_MAP={'5':'five','10':'ten','unlimited':'unlimited'};\n  function playerId(){\n    let id=localStorage.getItem(PLAYER_ID_KEY);\n    if(id&&/^[A-Za-z0-9_-]{8,128}$/.test(id))return id;\n    try{id='swb_'+crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g,'');}catch(_){id='swb_'+Date.now()+'_'+Math.random().toString(36).slice(2,12)}\n    localStorage.setItem(PLAYER_ID_KEY,id);\n    return id;\n  }\n\n  const day=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};\n  const completedKey=()=> 'swb_completed_coveralls_'+day();\n  const num=(k)=>Math.max(0,parseInt(localStorage.getItem(k)||'0',10)||0);\n  const completed=()=>Math.min(FREE_LIMIT,num(completedKey()));\n  const freeRemaining=()=>Math.max(0,FREE_LIMIT-completed());\n  const credits=()=>num(CREDIT_KEY);\n  const unlimited=()=>['active','true','1','yes'].includes(String(localStorage.getItem(MEMBER_KEY)||'').toLowerCase());\n  const canPlay=()=>unlimited()||freeRemaining()>0||credits()>0;\n\n  function paywall(){return document.getElementById('swbPaywallV48')}\n  function note(){return document.getElementById('swbPayNote')}\n  function show(msg){const p=paywall();if(p)p.classList.add('show');if(msg&&note())note().textContent=msg}\n  function hide(){const p=paywall();if(p)p.classList.remove('show')}\n  function update(){\n    const el=document.getElementById('swbAccessText');\n    if(el){\n      if(unlimited())el.textContent='Unlimited Games: ACTIVE';\n      else el.textContent='Free Games Remaining Today: '+freeRemaining()+' of '+FREE_LIMIT+(credits()?' • Purchased Games: '+credits():'');\n    }\n  }\n\n  // Called ONLY from the game's native finish() after all 24 playable tiles are solved.\n  function completeCoverAll(){\n    if(unlimited()){update();return}\n    if(freeRemaining()>0){\n      localStorage.setItem(completedKey(),String(completed()+1));\n    }else if(credits()>0){\n      localStorage.setItem(CREDIT_KEY,String(credits()-1));\n    }\n    update();\n    if(!canPlay()) setTimeout(()=>show('You have completed all 5 free games for today. Choose an additional game pack or Unlimited Games to keep playing.'),2800);\n  }\n\n  // Block only the attempt to BEGIN another regular game after all free and purchased access is exhausted.\n  document.addEventListener('click',function(e){\n    const b=e.target.closest&&e.target.closest('#newGame,#startFamilyGame,#soloMode,#playAgain');\n    if(!b)return;\n    try{if(typeof playMode!=='undefined'&&playMode==='daily'&&b.id==='newGame')return}catch(_){}\n    if(!canPlay()){\n      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();\n      show('You have completed all 5 free games for today. Choose an additional game pack or Unlimited Games to keep playing.');\n    }\n  },true);\n\n  // Theme/board changes are allowed and never consume a game. Only Cover All completion counts.\n  document.getElementById('swbAccessOptions')?.addEventListener('click',()=>show('Choose the option that fits how you want to play.'));\n  document.getElementById('swbClosePayV48')?.addEventListener('click',hide);\n  document.getElementById('swbPaywallV48')?.addEventListener('click',e=>{if(e.target.id==='swbPaywallV48')hide()});\n\n  document.querySelectorAll('[data-swb-plan]').forEach(b=>b.addEventListener('click',async()=>{\n    const p=b.getAttribute('data-swb-plan');\n    const packageName=PLAN_MAP[p];\n    if(!packageName){show('Checkout option is unavailable. Please try again.');return}\n    localStorage.setItem(PENDING_KEY,p);\n    if(note())note().textContent='Creating your secure Square checkout...';\n    b.disabled=true;\n    try{\n      const r=await fetch(API_BASE+'/checkout',{\n        method:'POST',\n        headers:{'Content-Type':'application/json'},\n        body:JSON.stringify({playerId:playerId(),package:packageName})\n      });\n      const data=await r.json().catch(()=>({}));\n      if(!r.ok||!data.success||!data.checkoutUrl)throw new Error(data.error||'Checkout could not be created.');\n      if(note())note().textContent='Opening secure Square checkout...';\n      window.location.assign(data.checkoutUrl);\n    }catch(err){\n      b.disabled=false;\n      show('Square checkout could not be opened. Please try again. '+err.message);\n    }\n  }));\n\n  function localClaimed(){try{return JSON.parse(localStorage.getItem(CLAIMED_LOCAL_KEY)||'[]')}catch(_){return[]}}\n  function markLocalClaim(orderId){const a=localClaimed();if(!a.includes(orderId)){a.push(orderId);localStorage.setItem(CLAIMED_LOCAL_KEY,JSON.stringify(a.slice(-50)))}}\n\n  async function fulfillSquareReturn(){\n    const q=new URLSearchParams(location.search);\n    const orderId=q.get('orderId')||q.get('order_id');\n    const transactionId=q.get('transactionId')||q.get('paymentId')||q.get('payment_id');\n    if(!orderId)return;\n    if(localClaimed().includes(orderId)){\n      history.replaceState({},document.title,location.pathname+location.hash);\n      return;\n    }\n    try{\n      show('Confirming your Square payment and adding your games...');\n      const r=await fetch(API_BASE+'/api/claim',{\n        method:'POST',headers:{'Content-Type':'application/json'},\n        body:JSON.stringify({orderId,transactionId})\n      });\n      const data=await r.json().catch(()=>({}));\n      if(!r.ok||!data.ok)throw new Error(data.error||'Payment could not be verified.');\n      if(data.plan==='unlimited'){\n        localStorage.setItem(MEMBER_KEY,'active');\n      }else{\n        localStorage.setItem(CREDIT_KEY,String(credits()+Number(data.credits||0)));\n      }\n      markLocalClaim(orderId);\n      localStorage.removeItem(PENDING_KEY);\n      update();hide();\n      const msg=data.plan==='unlimited'?'Unlimited Games are now active.':data.credits+' purchased games have been added.';\n      const message=document.getElementById('message');if(message){message.textContent=msg;message.className='good'}\n      history.replaceState({},document.title,location.pathname+location.hash);\n    }catch(err){\n      show('Your payment return was received, but automatic verification is not available yet. Please do not purchase again. '+err.message);\n    }\n  }\n\n  // Ignore all obsolete counters from prior builds. They no longer control access.\n  update();\n  if(canPlay())hide();\n  fulfillSquareReturn();\n\n  window.SWBAccessV74={completeCoverAll,freeRemaining,paidCredits:credits,unlimited,canPlay,refresh:update};\n})();\n</script>\n<!-- SWB_ACCESS_AND_PAYMENT_V74_END -->\n
+<!-- SWB_ACCESS_AND_PAYMENT_V78_START -->
+<script id="swb-access-payment-v78">
+(function(){
+  const FREE_LIMIT=3;
+  const API_BASE=(window.SWB_FULFILLMENT_API_BASE||'https://scrambled-word-bingo-payments.pamela-5fe.workers.dev').replace(/\/$/,'');
+  const PLAYER_ID_KEY='swb_player_id_v78';
+  const PENDING_KEY='swb_pending_purchase_v78';
+  const BALANCE_CACHE_KEY='swb_server_balance_v78';
+
+  // Legacy keys are kept in sync so the existing access-bar display code remains compatible.
+  const CREDIT_KEY='swb_paid_game_credits_v48';
+  const MEMBER_KEY='swb_monthly_member_v48';
+
+  const PLAN_MAP={'5':'five','10':'ten','unlimited':'unlimited'};
+  let balance={freeGamesPerDay:FREE_LIMIT,freeGamesRemaining:FREE_LIMIT,purchasedGamesRemaining:0,unlimited:false,loaded:false};
+
+  function playerId(){
+    let id=localStorage.getItem(PLAYER_ID_KEY);
+    if(id&&/^[A-Za-z0-9_-]{8,128}$/.test(id))return id;
+    try{id='swb_'+crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g,'');}
+    catch(_){id='swb_'+Date.now()+'_'+Math.random().toString(36).slice(2,12);}
+    localStorage.setItem(PLAYER_ID_KEY,id);
+    return id;
+  }
+
+  const day=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+  const completedKey=()=> 'swb_completed_coveralls_'+day();
+  const n=v=>Math.max(0,parseInt(v,10)||0);
+
+  function paywall(){return document.getElementById('swbPaywallV48')}
+  function note(){return document.getElementById('swbPayNote')}
+  function show(msg){const p=paywall();if(p)p.classList.add('show');if(msg&&note())note().textContent=msg}
+  function hide(){const p=paywall();if(p)p.classList.remove('show')}
+
+  function cacheBalance(){
+    try{localStorage.setItem(BALANCE_CACHE_KEY,JSON.stringify({date:day(),...balance}));}catch(_){}
+  }
+  function loadCachedBalance(){
+    try{
+      const c=JSON.parse(localStorage.getItem(BALANCE_CACHE_KEY)||'null');
+      if(c&&c.date===day()){
+        balance={
+          freeGamesPerDay:n(c.freeGamesPerDay)||FREE_LIMIT,
+          freeGamesRemaining:n(c.freeGamesRemaining),
+          purchasedGamesRemaining:n(c.purchasedGamesRemaining),
+          unlimited:!!c.unlimited,
+          loaded:false
+        };
+      }
+    }catch(_){}
+  }
+
+  function syncLegacyKeys(){
+    const used=Math.max(0,FREE_LIMIT-Math.min(FREE_LIMIT,n(balance.freeGamesRemaining)));
+    localStorage.setItem(completedKey(),String(used));
+    localStorage.setItem(CREDIT_KEY,String(n(balance.purchasedGamesRemaining)));
+    if(balance.unlimited)localStorage.setItem(MEMBER_KEY,'active');
+    else localStorage.removeItem(MEMBER_KEY);
+  }
+
+  function applyBalance(data){
+    if(!data||data.success===false)return false;
+    balance.freeGamesPerDay=n(data.freeGamesPerDay)||FREE_LIMIT;
+    balance.freeGamesRemaining=n(data.freeGamesRemaining);
+    balance.purchasedGamesRemaining=n(data.purchasedGamesRemaining);
+    balance.unlimited=!!data.unlimited;
+    balance.loaded=true;
+    syncLegacyKeys();
+    cacheBalance();
+    update();
+    return true;
+  }
+
+  function freeRemaining(){return n(balance.freeGamesRemaining)}
+  function credits(){return n(balance.purchasedGamesRemaining)}
+  function unlimited(){return !!balance.unlimited}
+  function canPlay(){return unlimited()||freeRemaining()>0||credits()>0}
+
+  function update(){
+    const el=document.getElementById('swbAccessText');
+    if(el){
+      if(unlimited())el.textContent='Unlimited Games: ACTIVE';
+      else el.textContent='Free Games Remaining Today: '+freeRemaining()+' of '+FREE_LIMIT+(credits()?' • Purchased Games: '+credits():'');
+    }
+  }
+
+  async function refreshBalance(options={}){
+    const quiet=!!options.quiet;
+    try{
+      const r=await fetch(API_BASE+'/balance?playerId='+encodeURIComponent(playerId()),{method:'GET',cache:'no-store'});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||!data.success)throw new Error(data.error||'Balance could not be loaded.');
+      applyBalance(data);
+      if(canPlay())hide();
+      return data;
+    }catch(err){
+      if(!quiet&&!balance.loaded)show('We could not refresh your game balance. Please check your connection and try again.');
+      return null;
+    }
+  }
+
+  // Called only when a non-Daily game reaches Cover All.
+  async function completeCoverAll(){
+    if(unlimited()){update();return}
+
+    // Update the display immediately; the Worker remains the source of truth.
+    if(freeRemaining()>0)balance.freeGamesRemaining--;
+    else if(credits()>0)balance.purchasedGamesRemaining--;
+    syncLegacyKeys();cacheBalance();update();
+
+    try{
+      const r=await fetch(API_BASE+'/consume',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({playerId:playerId()})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||data.success===false)throw new Error(data.error||'Game use could not be recorded.');
+      // Some Worker versions return the updated balance directly; otherwise refresh it.
+      if(!applyBalance(data))await refreshBalance({quiet:true});
+    }catch(_){
+      await refreshBalance({quiet:true});
+    }
+
+    if(!canPlay())setTimeout(()=>show('You have completed all 3 free games for today. Choose an additional game pack or Unlimited Games to keep playing.'),2800);
+  }
+
+  // Block only attempts to begin another regular game when server-synced access is exhausted.
+  document.addEventListener('click',function(e){
+    const b=e.target.closest&&e.target.closest('#newGame,#startFamilyGame,#soloMode,#playAgain');
+    if(!b)return;
+    try{if(typeof playMode!=='undefined'&&playMode==='daily'&&b.id==='newGame')return}catch(_){}
+    if(balance.loaded&&!canPlay()){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+      show('You have completed all 3 free games for today. Choose an additional game pack or Unlimited Games to keep playing.');
+    }
+  },true);
+
+  document.getElementById('swbAccessOptions')?.addEventListener('click',()=>show('Choose the option that fits how you want to play.'));
+  document.getElementById('swbGetMoreGamesTop')?.addEventListener('click',()=>show('You can purchase more games at any time. Your free games are used first, and purchased games do not expire.'));
+  document.getElementById('swbClosePayV48')?.addEventListener('click',hide);
+  document.getElementById('swbPaywallV48')?.addEventListener('click',e=>{if(e.target.id==='swbPaywallV48')hide()});
+
+  document.querySelectorAll('[data-swb-plan]').forEach(b=>b.addEventListener('click',async()=>{
+    const uiPlan=b.getAttribute('data-swb-plan');
+    const packageName=PLAN_MAP[uiPlan];
+    if(!packageName){show('Checkout option is unavailable. Please try again.');return}
+    localStorage.setItem(PENDING_KEY,JSON.stringify({plan:uiPlan,beforeCredits:credits(),beforeUnlimited:unlimited(),started:Date.now()}));
+    if(note())note().textContent='Creating your secure Square checkout...';
+    b.disabled=true;
+    try{
+      const r=await fetch(API_BASE+'/checkout',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({playerId:playerId(),package:packageName})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||!data.success||!data.checkoutUrl)throw new Error(data.error||'Checkout could not be created.');
+      if(note())note().textContent='Opening secure Square checkout...';
+      window.location.assign(data.checkoutUrl);
+    }catch(err){
+      b.disabled=false;
+      localStorage.removeItem(PENDING_KEY);
+      show('Square checkout could not be opened. Please try again. '+err.message);
+    }
+  }));
+
+  function pendingPurchase(){
+    try{return JSON.parse(localStorage.getItem(PENDING_KEY)||'null')}catch(_){return null}
+  }
+
+  async function reconcilePurchaseReturn(){
+    const pending=pendingPurchase();
+    if(!pending){await refreshBalance({quiet:true});return}
+
+    show('Confirming your Square payment and updating your games...');
+    const started=Date.now();
+    let latest=null;
+    for(let attempt=0;attempt<8;attempt++){
+      latest=await refreshBalance({quiet:true});
+      const credited=latest&&(
+        latest.unlimited ||
+        n(latest.purchasedGamesRemaining)>n(pending.beforeCredits)
+      );
+      if(credited){
+        localStorage.removeItem(PENDING_KEY);
+        hide();
+        const msg=latest.unlimited?'Unlimited Games are now active.':'Your purchased games have been added.';
+        const message=document.getElementById('message');if(message){message.textContent=msg;message.className='good'}
+        return;
+      }
+      if(Date.now()-started>16000)break;
+      await new Promise(resolve=>setTimeout(resolve,2000));
+    }
+
+    // A canceled checkout should not trap the player behind the payment modal.
+    hide();
+    if(note())note().textContent='If you completed payment, your games may take a few seconds to appear. Open Get More Games or refresh the page to check again.';
+  }
+
+  loadCachedBalance();
+  syncLegacyKeys();
+  update();
+  reconcilePurchaseReturn();
+
+  // Keep the existing name for compatibility with the game's finish() function.
+  window.SWBAccessV74={completeCoverAll,freeRemaining,paidCredits:credits,unlimited,canPlay,refresh:update,refreshBalance,playerId};
+  window.SWBAccessV78=window.SWBAccessV74;
+})();
+</script>
+<!-- SWB_ACCESS_AND_PAYMENT_V78_END -->
 
 <!-- Famous Rappers board added v77: 100 stage/performance names, progressive hints -->
 <script id="famous-rappers-board-v77">
