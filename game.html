@@ -9617,6 +9617,30 @@ window.SWB_HINT_AUDIT={
   window.SWBAccessV78=window.SWBAccessV74;
 })();
 </script>
+
+<!-- V86: Visible server game balance under Get More Games -->
+<style id="swb-visible-balance-v86-style">
+#swbVisibleBalanceV86{box-sizing:border-box;width:100%;max-width:220px;margin:5px 0 3px;padding:6px 7px;border:2px solid #8fd7ff;border-radius:10px;background:#061f47;color:#fff;text-align:center;font-weight:900;font-size:11px;line-height:1.25}
+#swbVisibleBalanceV86 .swb-bal-title{color:#ffd72e;font-size:10px;letter-spacing:.3px;margin-bottom:2px}
+@media(max-width:650px){#swbVisibleBalanceV86{max-width:none;font-size:10px;padding:5px 6px}}
+</style>
+<script id="swb-visible-balance-v86-js">
+(function(){
+ function render(){
+   const more=document.getElementById('swbGetMoreGamesTop'); if(!more)return;
+   let box=document.getElementById('swbVisibleBalanceV86');
+   if(!box){box=document.createElement('div');box.id='swbVisibleBalanceV86';box.setAttribute('aria-live','polite');}
+   if(box.previousElementSibling!==more)more.insertAdjacentElement('afterend',box);
+   const api=window.SWBAccessV74;
+   if(!api){box.innerHTML='<div class="swb-bal-title">TODAY\'S GAMES</div>Checking balance…';return;}
+   if(api.unlimited()){box.innerHTML='<div class="swb-bal-title">GAME BALANCE</div>🎮 Unlimited Games';return;}
+   box.innerHTML='<div class="swb-bal-title">TODAY\'S GAMES</div>Free: '+api.freeRemaining()+' &nbsp;|&nbsp; Purchased: '+api.paidCredits();
+ }
+ function start(){render(); const api=window.SWBAccessV74; if(api&&api.refreshBalance)api.refreshBalance({quiet:true}).then(render); setInterval(render,1200);}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(start,50));else setTimeout(start,50);
+ window.addEventListener('focus',()=>{const a=window.SWBAccessV74;if(a&&a.refreshBalance)a.refreshBalance({quiet:true}).then(render)});
+})();
+</script>
 <!-- SWB_ACCESS_AND_PAYMENT_V78_END -->
 
 <!-- Famous Rappers board added v77: 100 stage/performance names, progressive hints -->
