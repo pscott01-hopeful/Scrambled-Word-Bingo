@@ -8689,7 +8689,7 @@ window.SWB_HINT_AUDIT={
 .swb-price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.swb-price{border:2px solid #d8dcec;border-radius:12px;padding:13px 8px;background:#fafbff}.swb-price.best{border-color:#18a64a;background:#effff3}.swb-price h3{margin:0 0 4px;font-size:16px}.swb-price .price{font-size:23px;font-weight:900;color:#17398f}.swb-price small{display:block;min-height:34px}.swb-price button{margin-top:9px;width:100%;border:0;border-radius:8px;padding:9px 5px;background:#20a84d;color:#fff;font-weight:900;cursor:pointer}.swb-price button.sub{background:#6c35b5}.swb-pay-note{font-size:11px;color:#5f6477;margin:12px 0 4px;line-height:1.35}.swb-close-pay{margin-top:12px;border:0;border-radius:8px;background:#666;color:#fff;padding:8px 18px;font-weight:800;cursor:pointer}
 @media(max-width:650px){.swb-price-grid{grid-template-columns:1fr}.swb-price small{min-height:0}#swbAccessBar{left:8px;right:8px;bottom:44px;max-width:none;text-align:center}}
 </style>
-<div id="swbAccessBar" aria-live="polite"><span id="swbAccessText">Free Games Remaining Today: 3 of 3</span><button class="swb-access-link" id="swbAccessOptions" type="button">Get More Games</button></div>
+
 <template id="swbPaywallTemplateV82">
  <div class="swb-pay-card">
   <h2 id="swbPayTitle">Keep Playing Scrambled Word Bingo™!</h2>
@@ -9114,132 +9114,7 @@ window.SWB_HINT_AUDIT={
 <!-- DIRECT_INVITE_FINAL_V65_END -->
 
 
-<!-- ACCESS_BAR_SMART_VISIBILITY_V76_START -->
-<style id="swb-access-smart-v76-style">
-  /* Free-games notice: directly below Daily Puzzle; brief while free games remain, persistent after all 3 are used. */
-  #swbAccessBar{
-    position:static !important;
-    inset:auto !important;
-    width:100% !important;
-    max-width:none !important;
-    margin:7px 0 10px !important;
-    padding:9px 10px !important;
-    border:2px solid #6c35b5 !important;
-    border-radius:12px !important;
-    background:#fff !important;
-    color:#14235c !important;
-    box-shadow:0 4px 12px #0003 !important;
-    font:800 11px/1.25 Arial,sans-serif !important;
-    text-align:center !important;
-    z-index:25 !important;
-  }
-  #swbAccessBar.swb-free-hidden-v76{display:none !important;}
-  #swbAccessBar.swb-free-show-v76{display:block !important;}
-  #swbAccessBar .swb-access-link{
-    display:block !important;
-    margin:4px auto 0 !important;
-    border:0 !important;
-    background:transparent !important;
-    color:#087a31 !important;
-    text-decoration:underline !important;
-    font-weight:900 !important;
-    font-size:10px !important;
-    cursor:pointer !important;
-    padding:0 !important;
-  }
-  @media(max-width:640px){
-    #phoneModesV9 + #swbAccessBar,
-    #phoneModesV9 #swbAccessBar{margin-top:7px !important;}
-  }
-</style>
-<script id="swb-access-smart-v76-script">
-(function(){
-  const FREE_LIMIT=3;
-  const bar=document.getElementById('swbAccessBar');
-  const textEl=document.getElementById('swbAccessText');
-  const summary=document.getElementById('summaryModal');
-  let hideTimer=null;
-  let lastSummaryOpen=false;
-  if(!bar||!textEl)return;
 
-  function today(){
-    const d=new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  function completed(){
-    return Math.min(FREE_LIMIT,Math.max(0,parseInt(localStorage.getItem('swb_completed_coveralls_'+today())||'0',10)||0));
-  }
-  function remaining(){return Math.max(0,FREE_LIMIT-completed());}
-  function isDaily(){try{return typeof playMode!=='undefined'&&playMode==='daily'}catch(_){return false}}
-
-  function placeUnderDailyPuzzleBox(){
-    const mobileModes=document.getElementById('phoneModesV9');
-    if(window.matchMedia('(max-width:640px)').matches && mobileModes && mobileModes.parentNode){
-      mobileModes.insertAdjacentElement('afterend',bar);
-      return;
-    }
-    const daily=document.getElementById('dailyMode');
-    const modeBox=daily&&daily.closest('.mode-pill');
-    if(modeBox&&modeBox.parentNode){
-      modeBox.insertAdjacentElement('afterend',bar);
-      return;
-    }
-    const left=document.querySelector('.arcade-left');
-    if(left)left.appendChild(bar);
-  }
-
-  function hideBar(){
-    if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
-    bar.classList.remove('swb-free-show-v76');
-    bar.classList.add('swb-free-hidden-v76');
-  }
-  function showBar(message,persistent){
-    placeUnderDailyPuzzleBox();
-    if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
-    if(message)textEl.textContent=message;
-    bar.classList.remove('swb-free-hidden-v76');
-    bar.classList.add('swb-free-show-v76');
-    if(!persistent)hideTimer=setTimeout(hideBar,5000);
-  }
-  function showCurrentBriefly(){
-    if(isDaily()){hideBar();return;}
-    const rem=remaining();
-    if(rem<=0){
-      showBar("You've used all 3 free games for today. Choose Get More Games to keep playing.",true);
-    }else if(rem===FREE_LIMIT){
-      showBar('3 FREE games available today • A game counts after Cover All is completed.',false);
-    }else{
-      showBar(rem+' FREE game'+(rem===1?'':'s')+' remaining today.',false);
-    }
-  }
-  function onGameComplete(){
-    if(isDaily())return;
-    const rem=remaining();
-    const done=FREE_LIMIT-rem;
-    if(rem>0){
-      showBar('Game '+done+' complete • '+rem+' free game'+(rem===1?'':'s')+' left today',false);
-    }else{
-      showBar("You've used all 3 free games for today. Choose Get More Games to keep playing.",true);
-    }
-  }
-
-  /* Re-place only when viewport/layout changes; avoids repeatedly moving the box. */
-  window.addEventListener('resize',()=>setTimeout(placeUnderDailyPuzzleBox,80));
-  window.addEventListener('orientationchange',()=>setTimeout(placeUnderDailyPuzzleBox,180));
-
-  if(summary){
-    new MutationObserver(function(){
-      const open=summary.classList.contains('show');
-      if(open&&!lastSummaryOpen)setTimeout(onGameComplete,80);
-      lastSummaryOpen=open;
-    }).observe(summary,{attributes:true,attributeFilter:['class']});
-  }
-
-  setTimeout(function(){placeUnderDailyPuzzleBox();showCurrentBriefly();},900);
-  window.SWBAccessNoticeV76={showBar,hideBar,onGameComplete,remaining,placeUnderDailyPuzzleBox,showCurrentBriefly};
-})();
-</script>
-<!-- ACCESS_BAR_SMART_VISIBILITY_V76_END -->
 
 
 
@@ -10025,6 +9900,27 @@ window.SWB_HINT_AUDIT={
 })();
 </script>
 <!-- Classic Rock board added v80: 100 artists/bands -->
+
+<style id="v090-larger-game-board">
+@media (min-width:821px){
+  .arcade-center .board, .board{
+    width:100%!important;
+    max-width:1040px!important;
+    gap:4px!important;
+    padding:7px!important;
+    border-width:5px!important;
+  }
+  .board .tile, .tile{
+    height:clamp(86px,9.2vh,116px)!important;
+    font-size:clamp(1.15rem,1.6vw,1.65rem)!important;
+    padding:4px 3px!important;
+  }
+  .arcade-center .answer-row, .answer-row{
+    width:100%!important;
+    max-width:1040px!important;
+  }
+}
+</style>
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
