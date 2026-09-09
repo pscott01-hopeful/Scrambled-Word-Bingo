@@ -1961,7 +1961,7 @@ function render(){
 function selectTile(i){
  if(paused||board[i].free||board[i].solved)return;
  selected=i; if(resultMessageTimer){clearTimeout(resultMessageTimer);resultMessageTimer=null;} setMessage("");if(!started){started=true;if(timerEnabled)startTimer()}
- render();selectedDisplay.textContent=board[i].scramble;answerEl.disabled=false;submitEl.disabled=false;document.getElementById("hint").disabled=false;
+ render();selectedDisplay.textContent=board[i].scramble;answerEl.disabled=false;submitEl.disabled=false;document.getElementById("hint").disabled=(board[i].hintIndex>=5);
  answerEl.value="";answerEl.focus();
  if(board[i].hintIndex===5){
    if(!Array.isArray(board[i].hints))board[i].hints=[];
@@ -2063,8 +2063,15 @@ function requiredFifthHint(word){
  return s ? `Starts with ${s.charAt(0).toUpperCase()} and ends with ${s.slice(-1).toUpperCase()}.` : "";
 }
 function showHint(){
- if(selected<0||paused)return;
+ const hintBtn=document.getElementById("hint");
+ if(selected<0||paused||!board[selected]){
+   if(hintBtn) hintBtn.disabled=true;
+   return;
+ }
  const item=board[selected];
+ if(!Array.isArray(item.hints)) item.hints=[];
+ if(!Number.isFinite(item.hintIndex)) item.hintIndex=0;
+
  if(item.hintIndex<5){
    item.hintIndex++;
    hintsUsed++;
@@ -2077,25 +2084,22 @@ function showHint(){
      familyPerfectTrack[currentPlayerIndex].hints++;
    }
    scoreEl.textContent=score;
-   updateFamilyPanel();
+   try{ updateFamilyPanel(); }catch(e){}
 
-   // UNIVERSAL RULE: Hint #5 is generated from the actual answer at display time.
-   // This overrides any older or incorrectly stored fifth hint.
-   if(item.hintIndex===5){
-     if(!Array.isArray(item.hints))item.hints=[];
-     while(item.hints.length<5)item.hints.push("");
-     item.hints[4]=requiredFifthHint(item.word);
-     hintText.textContent=item.hints[4];
-   }else{
-     hintText.textContent=item.hints[item.hintIndex-1]||"";
-   }
-
+   while(item.hints.length<5)item.hints.push("");
+   if(item.hintIndex===5)item.hints[4]=requiredFifthHint(item.word);
+   hintText.textContent=item.hints[item.hintIndex-1]||"Hint unavailable for this word.";
    hintMeta.textContent=`Hint ${item.hintIndex} of 5`;
    setMessage(`Hint used: −${hintCost} points.`,"bad");
-   beep("hint");
+
+   // Keep the same selected tile active so Hint 2, 3, 4 and 5 can be
+   // requested immediately after Hint 1. Only disable after Hint 5.
+   if(hintBtn) hintBtn.disabled=(item.hintIndex>=5);
+
+   try{ beep("hint"); }catch(e){}
+
    // Keep the hint panel in place on phones/tablets. Mobile Safari can jump
-   // the page when an input is focused programmatically, moving the newly
-   // revealed hint off screen. Desktop users may still return to typing.
+   // when an input is focused programmatically.
    const hintScrollX = window.scrollX || window.pageXOffset || 0;
    const hintScrollY = window.scrollY || window.pageYOffset || 0;
    setTimeout(function(){
@@ -2104,16 +2108,17 @@ function showHint(){
        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
      const isTouchLayout = (navigator.maxTouchPoints || 0) > 0 &&
        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-
      if(isIOS || isTouchLayout){
-       // Do not force the keyboard/input focus on mobile; keep the hint visible.
        window.scrollTo(hintScrollX, hintScrollY);
        requestAnimationFrame(function(){ window.scrollTo(hintScrollX, hintScrollY); });
      }else{
-       try{ answerEl.focus({preventScroll:true}); }catch(_){ answerEl.focus(); }
+       try{ answerEl.focus({preventScroll:true}); }catch(_){ try{answerEl.focus();}catch(e){} }
      }
    },0);
- } else setMessage("All five hints are already shown.","bad");
+ }else{
+   if(hintBtn) hintBtn.disabled=true;
+   setMessage("All five hints are already shown.","bad");
+ }
 }
 function checkPatterns(isFaithMove=false){
  const solved=i=>board[i].solved;
