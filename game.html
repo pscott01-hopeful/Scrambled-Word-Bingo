@@ -3,7 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Scrambled Word Bingo™ — Version 1 Release Candidate v0.75</title>
+<title>Scrambled Word Bingo™ | Free Online Word Puzzle Game</title>
+<meta name="description" content="Play Scrambled Word Bingo™, a free online word puzzle game. Unscramble words, use progressive hints, play Solo or Family Game Night, and try the free Daily Puzzle.">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/game.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Scrambled Word Bingo™ | Free Online Word Puzzle Game">
+<meta property="og:description" content="Unscramble words, cover the board, and have fun with Solo play, Family Game Night, progressive hints, and a free Daily Puzzle.">
+<meta property="og:url" content="https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/game.html">
+<meta property="og:site_name" content="Scrambled Word Bingo">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Scrambled Word Bingo™ | Free Online Word Puzzle Game">
+<meta name="twitter:description" content="Unscramble words, cover the board, and play Scrambled Word Bingo online.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Scrambled Word Bingo",
+  "url": "https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/game.html",
+  "description": "A browser-based word puzzle game where players unscramble words, use progressive hints, and play Bingo-style winning patterns in Solo, Family Game Night, and Daily Puzzle modes.",
+  "genre": ["Word game", "Puzzle game", "Bingo"],
+  "gamePlatform": "Web browser",
+  "playMode": ["SinglePlayer", "MultiPlayer"],
+  "inLanguage": "en-US",
+  "isAccessibleForFree": true
+}
+</script>
 <!-- Growing Word Bank cycle patch: preserves all existing words; 23 rotating words + Faith; per-category full-cycle tracking. -->
 <style>
 :root{
@@ -1906,6 +1931,31 @@ function buildBoard(){
    let attempts=0;
    while(entries.map(item=>item.word).join("|")===previousOrder && attempts++<8){
      entries=shuffled(entries);
+   }
+ }
+ // FINAL BOARD INTEGRITY CHECK: never allow the same answer twice on one board.
+ // This protects every category, including Daily Puzzle, even if a source bank accidentally contains duplicates.
+ {
+   const seenBoardWords=new Set();
+   entries=(entries||[]).filter(item=>{
+     if(!item||!item.word)return false;
+     const k=normalizeAnswer(item.word).toLowerCase();
+     if(!k||seenBoardWords.has(k))return false;
+     seenBoardWords.add(k);
+     return true;
+   });
+   if(entries.length<24){
+     const sourceCategory=(playMode==="daily")?dailyCategoryPlan().category:category;
+     const sourceTheme=(playMode==="daily")?(Object.keys(THEMES).find(t=>(THEMES[t]||[]).includes(sourceCategory))||sourceCategory):currentThemeName();
+     const candidates=shuffled((WORDS[sourceCategory]||[]).slice());
+     for(const w of candidates){
+       if(entries.length>=24)break;
+       if(!Array.isArray(w)||!w[0])continue;
+       const k=normalizeAnswer(w[0]).toLowerCase();
+       if(!k||k==="faith"||seenBoardWords.has(k))continue;
+       seenBoardWords.add(k);
+       entries.push({word:w[0],displayWord:displayWord(w[0]),hints:makeMeaningfulHints(w[0],sourceTheme,w.slice(1,6)),scramble:scrambleAnswer(w[0]),solved:false,hintIndex:0,isFaith:false});
+     }
    }
  }
  board=[];let ei=0;
@@ -6568,10 +6618,33 @@ window.SWB_HINT_AUDIT={
   }
 
   function setMode(next){
-    localStorage.setItem(KEY,next==="open"?"open":"covered");
+    const target=next==="open"?"open":"covered";
+    localStorage.setItem(KEY,target);
     revealed.clear();
+
+    // When returning from Open Board to Covered Board, forget the
+    // temporary "all tiles revealed" state used by Family Game Night.
+    // Otherwise those tiles can remain uncovered even though the Covered
+    // Board button is active.
+    try{
+      if(target==="covered"){
+        if(window.__familyRevealedTiles instanceof Set){
+          window.__familyRevealedTiles.clear();
+        }else{
+          window.__familyRevealedTiles=new Set();
+        }
+      }
+    }catch(e){}
+
     syncButtons();
     applyMode();
+
+    // Re-apply after any existing game-mode handlers finish rebuilding the board.
+    if(target==="covered"){
+      setTimeout(applyMode,0);
+      setTimeout(applyMode,80);
+      setTimeout(applyMode,180);
+    }
   }
 
   function syncButtons(){
@@ -8492,7 +8565,7 @@ window.SWB_HINT_AUDIT={
   color:#10284f;
   text-align:center;
 }
-#dailyResultV44.show{display:block;}
+#dailyResultV44.show{display:none!important;}
 #dailyResultV44 .result-title{font-size:19px;font-weight:1000;margin-bottom:5px;}
 #dailyResultV44 .result-line{font-size:14px;font-weight:800;line-height:1.5;}
 #dailyResultV44 .future-rank{margin-top:6px;font-size:12px;font-weight:800;color:#6b42c9;}
@@ -8546,7 +8619,7 @@ window.SWB_HINT_AUDIT={
       panel.id="dailyCommunityV44";
       panel.innerHTML=
         '<div class="daily-title">⭐ TODAY’S DAILY PUZZLE — FREE COMMUNITY CHALLENGE</div>'+
-        '<div class="daily-sub">Everyone gets the same puzzle today. Complete it to record your score, time, hints used and daily streak for the future online leaderboard.</div>';
+        '<div class="daily-sub">Everyone gets the same puzzle today. Complete it to record your score, time, hints used and daily streak for the Daily Puzzle Leaderboard.</div>';
       const board=document.getElementById("board");
       if(board && board.parentNode)board.parentNode.insertBefore(panel,board);
     }
@@ -8573,11 +8646,7 @@ window.SWB_HINT_AUDIT={
     ensurePanels();
     const box=document.getElementById("dailyResultV44");
     if(!box)return;
-    box.innerHTML=
-      '<div class="result-title">⭐ Daily Puzzle Complete!</div>'+
-      '<div class="result-line">Score: <b>'+r.score+'</b> &nbsp; • &nbsp; Time: <b>'+formatTime(r.seconds)+'</b></div>'+
-      '<div class="result-line">Hints Used: <b>'+r.hints+'</b> &nbsp; • &nbsp; Daily Streak: <b>'+r.streak+' day'+(r.streak===1?'':'s')+'</b></div>'+
-      '<div class="future-rank">Online Rank: Coming with the live community leaderboard</div>';
+    box.innerHTML='';
     box.classList.add("show");
   }
   function saveDailyResult(){
@@ -8589,7 +8658,12 @@ window.SWB_HINT_AUDIT={
       result={
         date:today,
         score:getNumber("score"),
-        seconds:dailyStartedAt ? Math.max(0,Math.round((Date.now()-dailyStartedAt)/1000)) : 0,
+        seconds:(function(){
+          try{
+            if(typeof timerEnabled!=="undefined" && timerEnabled && typeof seconds!=="undefined") return Number(seconds)||0;
+          }catch(e){}
+          return dailyStartedAt ? Math.max(0,Math.round((Date.now()-dailyStartedAt)/1000)) : 0;
+        })(),
         hints:getHints(),
         streak:updateStreak(today),
         leaderboardStatus:"ready_for_online_connection"
@@ -10010,6 +10084,374 @@ window.SWB_HINT_AUDIT={
   }
 }
 </style>
+
+
+<!-- SWB Anonymous Analytics Client v1 -->
+<script id="swb-anonymous-analytics-v1">
+(function(){
+  'use strict';
+  const ENDPOINT='https://scrambled-word-bingo-payments.pamela-5fe.workers.dev/analytics';
+  const ID_KEY='swb_analytics_id_v1';
+  const SESSION_KEY='swb_analytics_session_v1';
+
+  function uuid(){
+    try { return crypto.randomUUID(); } catch(e) {}
+    return 'swb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);
+  }
+  function getStored(key, session){
+    try {
+      const store=session ? sessionStorage : localStorage;
+      let v=store.getItem(key);
+      if(!v){ v=uuid(); store.setItem(key,v); }
+      return v;
+    } catch(e){ return uuid(); }
+  }
+  const visitorId=getStored(ID_KEY,false);
+  const sessionId=getStored(SESSION_KEY,true);
+
+  function cleanProps(props){
+    const out={};
+    Object.entries(props||{}).forEach(([k,v])=>{
+      if(v===undefined || v===null) return;
+      if(typeof v==='string') out[k]=v.slice(0,120);
+      else if(typeof v==='number' || typeof v==='boolean') out[k]=v;
+    });
+    return out;
+  }
+
+  function track(eventName, props){
+    try {
+      const payload=JSON.stringify({
+        event:String(eventName||'event').slice(0,64),
+        visitorId,
+        sessionId,
+        ts:new Date().toISOString(),
+        page:location.pathname,
+        referrer:document.referrer ? new URL(document.referrer).hostname : '',
+        props:cleanProps(props)
+      });
+      if(navigator.sendBeacon){
+        const blob=new Blob([payload],{type:'application/json'});
+        if(navigator.sendBeacon(ENDPOINT,blob)) return;
+      }
+      fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true,mode:'cors'}).catch(()=>{});
+    } catch(e){}
+  }
+  window.swbTrack=track;
+
+  function selectedCategory(){
+    const el=document.getElementById('category') || document.getElementById('theme') || document.querySelector('select');
+    return el && 'value' in el ? el.value : '';
+  }
+  function currentMode(){
+    try { return typeof playMode!=='undefined' ? playMode : ''; } catch(e){ return ''; }
+  }
+
+  track('page_view',{mode:currentMode()});
+
+  document.addEventListener('click',function(e){
+    const t=e.target && e.target.closest ? e.target.closest('button,[role="button"],.tile') : null;
+    if(!t) return;
+    const id=t.id||'';
+    const text=(t.textContent||'').trim().replace(/\s+/g,' ').slice(0,80);
+
+    if(id==='soloMode') track('mode_select',{mode:'solo'});
+    else if(id==='familyMode') track('mode_select',{mode:'family'});
+    else if(id==='dailyMode') track('mode_select',{mode:'daily'});
+    else if(id==='hint' || /show hint/i.test(text)) track('hint_used',{mode:currentMode(),category:selectedCategory()});
+    else if(id==='swbGetMoreGamesTop' || /get more games/i.test(text)) track('get_more_games_click',{mode:currentMode()});
+    else if(id==='submit' || /^submit$/i.test(text)) track('answer_submit',{mode:currentMode(),category:selectedCategory()});
+    else if(t.classList && (t.classList.contains('tile') || t.closest('.board'))) track('tile_select',{mode:currentMode(),category:selectedCategory()});
+  },true);
+
+  document.addEventListener('change',function(e){
+    const t=e.target;
+    if(!t) return;
+    if(t.id==='category' || t.id==='theme' || (t.tagName==='SELECT' && /category|theme/i.test(t.getAttribute('aria-label')||''))){
+      track('category_select',{category:t.value,mode:currentMode()});
+    }
+  },true);
+
+  const summary=document.getElementById('summaryModal');
+  if(summary && window.MutationObserver){
+    let wasVisible=false;
+    const obs=new MutationObserver(function(){
+      const st=getComputedStyle(summary);
+      const visible=st.display!=='none' && st.visibility!=='hidden' && summary.offsetParent!==null;
+      if(visible && !wasVisible){
+        track('cover_all_complete',{mode:currentMode(),category:selectedCategory()});
+      }
+      wasVisible=visible;
+    });
+    obs.observe(summary,{attributes:true,attributeFilter:['class','style','hidden']});
+  }
+
+  window.addEventListener('beforeunload',function(){
+    track('session_end',{mode:currentMode(),category:selectedCategory()});
+  });
+})();
+</script>
+
+
+<style id="daily-leaderboard-v1-style">
+#swbDailyLeaderboardBtn{
+  display:none;
+  width:100%;
+  min-height:34px!important;
+  height:34px!important;
+  padding:3px 6px!important;
+  margin:0!important;
+  border-radius:9px!important;
+  border:2px solid rgba(255,255,255,.55)!important;
+  background:linear-gradient(#7755e9,#5a34c9)!important;
+  color:#fff!important;
+  font-weight:900!important;
+  font-size:.72rem!important;
+  line-height:1!important;
+  box-shadow:0 3px 7px rgba(0,0,0,.24)!important;
+  cursor:pointer!important;
+}
+body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
+@media (min-width:901px){
+  .arcade-right .btn,
+  .arcade-right button{
+    min-height:34px!important;
+    font-size:.70rem!important;
+    padding:3px 5px!important;
+  }
+  #desktopRightActionsV2 button{
+    min-height:32px!important;
+    height:32px!important;
+    font-size:.64rem!important;
+    padding:2px 4px!important;
+  }
+  .arcade-right .panel{padding:7px!important;}
+  .arcade-right .panel h3{font-size:.86rem!important;margin-bottom:3px!important;}
+  #hint{min-height:34px!important;height:34px!important;margin-top:4px!important;}
+  #sound,#print{min-height:34px!important;height:34px!important;}
+}
+#swbLeaderboardModal,#swbNicknameModal{
+  position:fixed;inset:0;z-index:20050;display:none;align-items:center;justify-content:center;
+  background:rgba(3,15,55,.72);padding:18px;box-sizing:border-box;
+}
+#swbLeaderboardModal.show,#swbNicknameModal.show{display:flex;}
+.swb-lb-card{
+  width:min(760px,96vw);max-height:88vh;overflow:auto;background:#fff;color:#10285f;
+  border:5px solid #ffcc24;border-radius:22px;box-shadow:0 18px 48px rgba(0,0,0,.35);padding:20px;
+}
+.swb-lb-card h2{margin:0 0 8px;text-align:center;font-size:1.5rem;}
+.swb-lb-note{text-align:center;font-size:.9rem;font-weight:700;margin-bottom:14px;color:#5a34c9;}
+.swb-lb-table{width:100%;border-collapse:collapse;font-size:.92rem;}
+.swb-lb-table th,.swb-lb-table td{padding:8px 7px;border-bottom:1px solid #d7def0;text-align:left;}
+.swb-lb-table th{background:#eef3ff;color:#10285f;position:sticky;top:0;}
+.swb-lb-empty{text-align:center;padding:22px;font-weight:800;color:#68738f;}
+.swb-lb-actions{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.swb-lb-actions button{border:0;border-radius:10px;padding:9px 14px;font-weight:900;cursor:pointer;}
+.swb-lb-primary{background:#5a34c9;color:#fff;}.swb-lb-secondary{background:#e8edf8;color:#10285f;}
+#swbNicknameInput{width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid #aab9da;border-radius:10px;font-size:1rem;margin-top:8px;}
+.swb-nick-help{font-size:.86rem;line-height:1.4;color:#56627e;margin-top:6px;}
+@media(max-width:640px){.swb-lb-table{font-size:.78rem}.swb-lb-table th,.swb-lb-table td{padding:6px 4px}.swb-lb-card{padding:14px}}
+</style>
+
+<div id="swbLeaderboardModal" role="dialog" aria-modal="true" aria-labelledby="swbLeaderboardTitle">
+  <div class="swb-lb-card">
+    <h2 id="swbLeaderboardTitle">🏆 The Daily Puzzle Leaderboard</h2>
+    <div class="swb-lb-note" id="swbLeaderboardDate"></div>
+    <div id="swbLeaderboardContent" class="swb-lb-empty">Loading leaderboard…</div>
+    <div class="swb-lb-actions">
+      <button id="swbChangeNickname" class="swb-lb-secondary" type="button">Change Leaderboard Name</button>
+      <button id="swbCloseLeaderboard" class="swb-lb-primary" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="swbNicknameModal" role="dialog" aria-modal="true" aria-labelledby="swbNicknameTitle">
+  <div class="swb-lb-card" style="max-width:480px">
+    <h2 id="swbNicknameTitle">Choose Your Leaderboard Name</h2>
+    <div class="swb-lb-note">Use a nickname or first name — not your full name.</div>
+    <input id="swbNicknameInput" maxlength="20" autocomplete="nickname" placeholder="Example: WordQueen">
+    <div class="swb-nick-help">No account, email address, or password is required. This name is remembered on this device and can be changed later.</div>
+    <div class="swb-lb-actions">
+      <button id="swbNicknameLater" class="swb-lb-secondary" type="button">Not Now</button>
+      <button id="swbSaveNickname" class="swb-lb-primary" type="button">Save Name</button>
+    </div>
+  </div>
+</div>
+
+<script id="daily-leaderboard-v1-js">
+(function(){
+  const API='https://scrambled-word-bingo-payments.pamela-5fe.workers.dev/daily-leaderboard';
+  const NAME_KEY='swb_daily_leaderboard_name_v1';
+  const VISITOR_KEY='swb_analytics_id_v1';
+  const RESULT_PREFIX='swb_daily_result_v44_';
+  let nicknameResolve=null;
+
+  function dateKey(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function isDaily(){try{return playMode==='daily';}catch(e){return false;}}
+  function cleanName(v){return String(v||'').replace(/[^A-Za-z0-9 ._'\-]/g,'').replace(/\s+/g,' ').trim().slice(0,20);}
+  function getName(){try{return cleanName(localStorage.getItem(NAME_KEY)||'');}catch(e){return '';}}
+  function setName(v){v=cleanName(v);if(!v)return '';try{localStorage.setItem(NAME_KEY,v);}catch(e){}return v;}
+  function visitorId(){
+    try{
+      let id=localStorage.getItem(VISITOR_KEY)||'';
+      if(!id){id='swb_'+(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());localStorage.setItem(VISITOR_KEY,id);}
+      return id;
+    }catch(e){return 'swb_'+Math.random().toString(36).slice(2)+Date.now();}
+  }
+  function formatTime(sec){sec=Math.max(0,Number(sec)||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+  function ensureButton(){
+    if(document.getElementById('swbDailyLeaderboardBtn'))return;
+    const right=document.querySelector('.arcade-right'); if(!right)return;
+    const b=document.createElement('button');
+    b.id='swbDailyLeaderboardBtn';b.type='button';b.textContent='🏆 DAILY PUZZLE LEADERBOARD';
+    const hintPanel=[...right.querySelectorAll('.panel')].find(p=>p.querySelector('#hint'));
+    if(hintPanel)right.insertBefore(b,hintPanel); else right.appendChild(b);
+    b.addEventListener('click',openLeaderboard);
+  }
+  function syncDailyUI(){
+    ensureButton();
+    document.body.classList.toggle('swb-daily-active',isDaily());
+  }
+
+  function askNickname(force){
+    const current=getName(); if(current&&!force)return Promise.resolve(current);
+    const modal=document.getElementById('swbNicknameModal');const input=document.getElementById('swbNicknameInput');
+    if(!modal||!input)return Promise.resolve(current);
+    input.value=current;modal.classList.add('show');setTimeout(()=>input.focus(),50);
+    return new Promise(resolve=>{nicknameResolve=resolve;});
+  }
+  function closeNickname(value){
+    const modal=document.getElementById('swbNicknameModal');if(modal)modal.classList.remove('show');
+    if(nicknameResolve){const r=nicknameResolve;nicknameResolve=null;r(value||'');}
+  }
+  document.getElementById('swbSaveNickname').addEventListener('click',function(){
+    const input=document.getElementById('swbNicknameInput');const v=setName(input.value);
+    if(!v){input.focus();return;} closeNickname(v);
+  });
+  document.getElementById('swbNicknameLater').addEventListener('click',()=>closeNickname(''));
+  document.getElementById('swbChangeNickname').addEventListener('click',async function(){
+    document.getElementById('swbLeaderboardModal').classList.remove('show');
+    await askNickname(true); openLeaderboard();
+  });
+  document.getElementById('swbCloseLeaderboard').addEventListener('click',()=>document.getElementById('swbLeaderboardModal').classList.remove('show'));
+
+  async function openLeaderboard(){
+    const modal=document.getElementById('swbLeaderboardModal');const content=document.getElementById('swbLeaderboardContent');
+    const day=dateKey();document.getElementById('swbLeaderboardDate').textContent='Daily Puzzle — '+day;
+    modal.classList.add('show');content.className='swb-lb-empty';content.textContent='Loading leaderboard…';
+    try{
+      const res=await fetch(API+'?date='+encodeURIComponent(day),{method:'GET'});const data=await res.json();
+      if(!res.ok||!data.success)throw new Error(data.error||'Unable to load');
+      const rows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
+      if(!rows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
+      let html='<table class="swb-lb-table"><thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Hints</th><th>Streak</th></tr></thead><tbody>';
+      rows.forEach(function(r){html+='<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds!=null?r.timeSeconds:r.seconds))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
+      html+='</tbody></table>';content.className='';content.innerHTML=html;
+    }catch(err){content.className='swb-lb-empty';content.textContent='The Daily Puzzle Leaderboard is temporarily unavailable.';}
+  }
+
+  async function postResult(result){
+    if(!result)return;
+    let name=getName(); if(!name)name=await askNickname(false); if(!name)return;
+    const pid=visitorId();
+    const body={date:result.date||dateKey(),playerId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
+    try{
+      const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      let data=null;try{data=await res.json();}catch(_){}
+      if(data&&data.success&&data.rank){try{localStorage.setItem('swb_daily_rank_v1_'+(result.date||dateKey()),String(data.rank));}catch(e){}}
+      if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();
+      return data;
+    }catch(e){if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}
+  }
+  function submitSavedDaily(){
+    if(!isDaily())return;let r=null;try{r=JSON.parse(localStorage.getItem(RESULT_PREFIX+dateKey())||'null');}catch(e){}
+    if(r)postResult(r);
+  }
+
+  document.addEventListener('click',function(e){
+    const b=e.target&&e.target.closest?e.target.closest('button'):null;if(!b)return;
+    setTimeout(function(){syncDailyUI();},120);
+  },true);
+
+  function wireDailyNicknamePrompt(){
+    const dailyBtn=document.getElementById('dailyMode');
+    if(dailyBtn&&!dailyBtn.dataset.swbNicknameWired){
+      dailyBtn.dataset.swbNicknameWired='1';
+      dailyBtn.addEventListener('click',function(){
+        setTimeout(async function(){
+          syncDailyUI();
+          if(isDaily()&&!getName())await askNickname(false);
+        },180);
+      });
+    }
+    setTimeout(async function(){
+      syncDailyUI();
+      if(isDaily()&&!getName())await askNickname(false);
+    },450);
+  }
+
+  const dailyResult=document.getElementById('dailyResultV44');
+  if(dailyResult&&window.MutationObserver){
+    const obs=new MutationObserver(function(){if(dailyResult.classList.contains('show'))setTimeout(submitSavedDaily,120);});
+    obs.observe(dailyResult,{attributes:true,attributeFilter:['class']});
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){ensureButton();syncDailyUI();wireDailyNicknamePrompt();});
+  else{ensureButton();syncDailyUI();wireDailyNicknamePrompt();}
+
+  window.SWBDailyLeaderboard={open:openLeaderboard,submitSaved:submitSavedDaily};
+})();
+</script>
+
+<script id="daily-summary-unified-v2">
+(function(){
+  const NAME_KEY='swb_daily_leaderboard_name_v1';
+  const RESULT_PREFIX='swb_daily_result_v44_';
+  function day(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function daily(){try{return playMode==='daily';}catch(e){return false;}}
+  function name(){try{return (localStorage.getItem(NAME_KEY)||'').trim();}catch(e){return '';}}
+  function result(){try{return JSON.parse(localStorage.getItem(RESULT_PREFIX+day())||'null');}catch(e){return null;}}
+  function formatTime(sec){sec=Math.max(0,Number(sec)||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
+  function render(){
+    if(!daily())return;
+    const modal=document.getElementById('summaryModal'), grid=document.getElementById('summaryGrid');
+    if(!modal||!grid)return;
+    const r=result(); if(!r)return;
+    const title=modal.querySelector('.card > h2'); if(title)title.textContent='⭐ Daily Puzzle Complete!';
+    const nick=name()||'Choose a leaderboard name';
+    let rank='Pending';
+    try{rank=localStorage.getItem('swb_daily_rank_v1_'+day())||'Pending';}catch(e){}
+    if(rank!=='Pending'&&!String(rank).startsWith('#'))rank='#'+rank;
+    const vals=[
+      ['Player',nick],
+      ['Final Score',r.score],
+      ['Time',formatTime(r.seconds)],
+      ['Hints Used',r.hints],
+      ['Wrong Attempts',(typeof wrongAttempts!=='undefined'?wrongAttempts:0)],
+      ['Daily Streak',r.streak+' day'+(Number(r.streak)===1?'':'s')],
+      ['Online Rank',rank]
+    ];
+    grid.innerHTML='';
+    vals.forEach(([a,b])=>{const d=document.createElement('div');d.innerHTML='<b>'+a+'</b><br>'+b;grid.appendChild(d);});
+    let actions=modal.querySelector('.swb-daily-summary-actions');
+    if(!actions){
+      actions=document.createElement('div');actions.className='swb-daily-summary-actions';actions.style.cssText='display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 4px';
+      const lb=document.createElement('button');lb.type='button';lb.className='btn';lb.textContent='🏆 View Daily Puzzle Leaderboard';
+      lb.onclick=()=>{if(window.SWBDailyLeaderboard)window.SWBDailyLeaderboard.open();};
+      actions.appendChild(lb);
+      grid.insertAdjacentElement('afterend',actions);
+    }
+  }
+  const modal=document.getElementById('summaryModal');
+  if(modal&&window.MutationObserver)new MutationObserver(()=>{if(modal.classList.contains('show'))setTimeout(render,40);}).observe(modal,{attributes:true,attributeFilter:['class']});
+  window.addEventListener('storage',render);
+  document.addEventListener('click',function(e){if(e.target&&e.target.id==='swbSaveNickname')setTimeout(render,80);},true);
+  window.SWBRefreshDailySummary=render;
+})();
+</script>
+
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
