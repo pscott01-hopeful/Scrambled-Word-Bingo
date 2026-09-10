@@ -857,6 +857,7 @@ button.submit-btn:disabled {
   }
 }
 </style>
+<meta name="swb-build" content="2026-09-10-daily-lock-v3">
 </head>
 <body>
 
@@ -1515,6 +1516,23 @@ function updateDailyPuzzleControls(){
  if(dateLabel)dateLabel.textContent=isDaily?dailyDateKey():"";
 }
 
+function dailyCompletedToday(){
+ try{return !!localStorage.getItem("swb_daily_result_v44_"+dailyDateKey());}catch(e){return false;}
+}
+function showCompletedDailyBoard(){
+ try{
+   board.forEach(item=>{if(item&&!item.free)item.solved=true;});
+   render();
+   solvedCount.textContent="24 / 24";
+   selected=-1;
+   selectedDisplay.textContent="";
+   answerEl.value="";answerEl.disabled=true;submitEl.disabled=true;
+   const hb=document.getElementById("hint");if(hb)hb.disabled=true;
+   hintText.textContent="";hintMeta.textContent="Hint 0 of 5";
+   setMessage("Today's Daily Puzzle is already complete. A new puzzle will be available tomorrow.","good");
+ }catch(e){}
+}
+
 function setMode(mode){
  if(mode==="family"){openFamilySetup();return;}
  playMode=mode==="daily"?"daily":"solo";
@@ -1524,6 +1542,12 @@ function setMode(mode){
  document.getElementById("familyPanel").style.display="none";
  updateDailyPuzzleControls();
  buildBoard();
+ if(playMode==="daily" && dailyCompletedToday()){
+   setTimeout(function(){
+     showCompletedDailyBoard();
+     try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
+   },0);
+ }
 }
 
 function getFamilyGroups(){
@@ -1673,7 +1697,7 @@ function dailyUniqueBank(category){
  // Canonical alphabetical order makes the Daily Puzzle identical for every
  // player running the same published word bank, regardless of local history.
  return [...map.entries()]
-   .sort((a,b)=>a[0].localeCompare(b[0]))
+   .sort((a,b)=>a[0]===b[0]?0:(a[0]<b[0]?-1:1))
    .map(([,entry])=>entry);
 }
 function dailyRotationWords(category,occurrence,count){
@@ -2411,6 +2435,12 @@ categoryEl.addEventListener("change",()=>{
 document.getElementById("faithContinue").onclick=closeFaith;document.getElementById("faithModal").onclick=e=>{if(e.target.id==="faithModal")closeFaith()};
 document.getElementById("playAgain").onclick=()=>{
   document.getElementById("summaryModal").classList.remove("show");
+
+  if(playMode==="daily" && dailyCompletedToday()){
+    showCompletedDailyBoard();
+    try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.open)window.SWBDailyLeaderboard.open();}catch(e){}
+    return;
+  }
 
   /* Play Again always starts a fresh COVERED board in every play mode. */
   try{localStorage.setItem("swb_board_cover_mode_v12","covered");}catch(e){}
@@ -8588,9 +8618,11 @@ window.SWB_HINT_AUDIT={
   const LAST_KEY="swb_daily_last_completed_v44";
   let dailyStartedAt=0;
 
-  function dateKey(d){
-    d=d||new Date();
-    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  function dateKey(){
+    try{if(typeof dailyDateKey==="function")return dailyDateKey();}catch(e){}
+    const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+    const get=t=>(parts.find(p=>p.type===t)||{}).value||"";
+    return get("year")+"-"+get("month")+"-"+get("day");
   }
   function isDaily(){
     try{return playMode==="daily";}catch(e){return false;}
@@ -8605,9 +8637,9 @@ window.SWB_HINT_AUDIT={
     try{return typeof hintsUsed!=="undefined" ? (Number(hintsUsed)||0) : 0;}catch(e){return 0;}
   }
   function yesterdayKey(){
-    const d=new Date();
-    d.setDate(d.getDate()-1);
-    return dateKey(d);
+    const parts=dailyDateKey().split("-").map(Number);
+    const d=new Date(Date.UTC(parts[0],parts[1]-1,parts[2]-1));
+    return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
   }
   function updateStreak(today){
     let last="", streak=0;
@@ -8677,9 +8709,11 @@ window.SWB_HINT_AUDIT={
     };
     try{localStorage.setItem(RESULT_PREFIX+today,JSON.stringify(result));}catch(e){}
     showResult(result);
-    setTimeout(function(){
-      try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
-    },180);
+    [180,1200,3500].forEach(function(delay){
+      setTimeout(function(){
+        try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
+      },delay);
+    });
   }
   function watchCompletion(){
     const summary=document.getElementById("summaryModal");
@@ -10295,7 +10329,12 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
   const RESULT_PREFIX='swb_daily_result_v44_';
   let nicknameResolve=null;
 
-  function dateKey(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateKey(){
+    try{if(typeof dailyDateKey==='function')return dailyDateKey();}catch(e){}
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
+    return get('year')+'-'+get('month')+'-'+get('day');
+  }
   function isDaily(){try{return playMode==='daily';}catch(e){return false;}}
   function cleanName(v){return String(v||'').replace(/[^A-Za-z0-9 ._'\-]/g,'').replace(/\s+/g,' ').trim().slice(0,20);}
   function getName(){try{return cleanName(localStorage.getItem(NAME_KEY)||'');}catch(e){return '';}}
@@ -10422,7 +10461,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 (function(){
   const NAME_KEY='swb_daily_leaderboard_name_v1';
   const RESULT_PREFIX='swb_daily_result_v44_';
-  function day(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function day(){try{if(typeof dailyDateKey==='function')return dailyDateKey();}catch(e){}const p=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const g=t=>(p.find(x=>x.type===t)||{}).value||'';return g('year')+'-'+g('month')+'-'+g('day');}
   function daily(){try{return playMode==='daily';}catch(e){return false;}}
   function name(){try{return (localStorage.getItem(NAME_KEY)||'').trim();}catch(e){return '';}}
   function result(){try{return JSON.parse(localStorage.getItem(RESULT_PREFIX+day())||'null');}catch(e){return null;}}
