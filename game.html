@@ -1517,7 +1517,10 @@ function updateDailyPuzzleControls(){
 }
 
 function dailyCompletedToday(){
- try{return !!localStorage.getItem("swb_daily_result_v44_"+dailyDateKey());}catch(e){return false;}
+ try{
+   const day=dailyDateKey();
+   return !!localStorage.getItem("swb_daily_result_v44_"+day) || localStorage.getItem("swb_daily_completed_"+day)==="1";
+ }catch(e){return false;}
 }
 function showCompletedDailyBoard(){
  try{
@@ -1700,23 +1703,21 @@ function dailyUniqueBank(category){
    .sort((a,b)=>a[0]===b[0]?0:(a[0]<b[0]?-1:1))
    .map(([,entry])=>entry);
 }
+const DAILY_ALGO_VERSION="v3";
 function dailyRotationWords(category,occurrence,count){
  const bank=dailyUniqueBank(category);
  if(!bank.length)return [];
- const result=[];
- let pos=occurrence*count;
- while(result.length<count){
-   const cycle=Math.floor(pos/bank.length);
-   const offset=pos%bank.length;
-   const deck=dailyShuffle(
-     bank,
-     dailyHash(`ScrambledWordBingo|DailyRotation|${category}|Cycle|${cycle}`)
-   );
-   const take=Math.min(count-result.length,bank.length-offset);
-   result.push(...deck.slice(offset,offset+take));
-   pos+=take;
- }
- return result;
+
+ // Daily Puzzle v3: rank each UNIQUE word by a hash of the date/category/word.
+ // This makes the selection independent of local play history, source-array order,
+ // JavaScript sort behavior, or any random shuffle state.
+ const day=dailyDateKey();
+ const ranked=bank.map(entry=>{
+   const key=normalizeAnswer(entry[0]).toLowerCase();
+   return {entry,key,rank:dailyHash(`${DAILY_ALGO_VERSION}|${day}|${category}|${key}`)};
+ }).sort((a,b)=>a.rank-b.rank || (a.key<b.key?-1:a.key>b.key?1:0));
+
+ return ranked.slice(0,Math.min(count,ranked.length)).map(x=>x.entry);
 }
 function dailyHash(str){
  let h=2166136261;
@@ -1787,9 +1788,22 @@ function buildBoard(){
    }
 
    categoryStat.textContent=dailyCategory;
-   selectedWords=dailyRotationWords(dailyCategory,plan.occurrence,23);
+   const dailyCacheKey=`swb_daily_board_${DAILY_ALGO_VERSION}_${key}_${dailyCategory.replace(/\W/g,"_")}`;
+   let cachedKeys=[];
+   try{cachedKeys=JSON.parse(localStorage.getItem(dailyCacheKey)||"[]");}catch(e){cachedKeys=[];}
 
-   const seed=dailyHash(`${key}|${dailyCategory}|DailyChallengeBoard`);
+   if(Array.isArray(cachedKeys) && cachedKeys.length===23){
+     const byKey=new Map(dailyUniqueBank(dailyCategory).map(w=>[normalizeAnswer(w[0]).toLowerCase(),w]));
+     selectedWords=cachedKeys.map(k=>byKey.get(k)).filter(Boolean);
+   }
+   if(!Array.isArray(selectedWords) || selectedWords.length!==23){
+     selectedWords=dailyRotationWords(dailyCategory,plan.occurrence,23);
+     try{
+       localStorage.setItem(dailyCacheKey,JSON.stringify(selectedWords.map(w=>normalizeAnswer(w[0]).toLowerCase())));
+     }catch(e){}
+   }
+
+   const seed=dailyHash(`${DAILY_ALGO_VERSION}|${key}|${dailyCategory}|DailyChallengeBoard`);
    entries=selectedWords.map((w,i)=>({
      word:w[0],
      displayWord:displayWord(w[0]),
@@ -1981,14 +1995,19 @@ function buildBoard(){
    if(entries.length<24){
      const sourceCategory=(playMode==="daily")?dailyCategoryPlan().category:category;
      const sourceTheme=(playMode==="daily")?(Object.keys(THEMES).find(t=>(THEMES[t]||[]).includes(sourceCategory))||sourceCategory):currentThemeName();
-     const candidates=shuffled((WORDS[sourceCategory]||[]).slice());
+     const candidates=(playMode==="daily")
+       ? dailyShuffle(dailyUniqueBank(sourceCategory),dailyHash(`${DAILY_ALGO_VERSION}|${dailyDateKey()}|${sourceCategory}|IntegrityFill`))
+       : shuffled((WORDS[sourceCategory]||[]).slice());
      for(const w of candidates){
        if(entries.length>=24)break;
        if(!Array.isArray(w)||!w[0])continue;
        const k=normalizeAnswer(w[0]).toLowerCase();
        if(!k||k==="faith"||seenBoardWords.has(k))continue;
        seenBoardWords.add(k);
-       entries.push({word:w[0],displayWord:displayWord(w[0]),hints:makeMeaningfulHints(w[0],sourceTheme,w.slice(1,6)),scramble:scrambleAnswer(w[0]),solved:false,hintIndex:0,isFaith:false});
+       const fillScramble=(playMode==="daily")
+         ? dailyScramble(w[0],dailyHash(`${DAILY_ALGO_VERSION}|${dailyDateKey()}|${sourceCategory}|fill|${k}`))
+         : scrambleAnswer(w[0]);
+       entries.push({word:w[0],displayWord:displayWord(w[0]),hints:makeMeaningfulHints(w[0],sourceTheme,w.slice(1,6)),scramble:fillScramble,solved:false,hintIndex:0,isFaith:false});
      }
    }
  }
@@ -8707,7 +8726,10 @@ window.SWB_HINT_AUDIT={
       streak:updateStreak(today),
       leaderboardStatus:"ready_for_online_connection"
     };
-    try{localStorage.setItem(RESULT_PREFIX+today,JSON.stringify(result));}catch(e){}
+    try{
+      localStorage.setItem(RESULT_PREFIX+today,JSON.stringify(result));
+      localStorage.setItem("swb_daily_completed_"+today,"1");
+    }catch(e){}
     showResult(result);
     [180,1200,3500].forEach(function(delay){
       setTimeout(function(){
@@ -10504,6 +10526,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
+<!-- SWB Daily Puzzle deterministic board v3: stable selection/order + same-device manifest + replay lock -->
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
