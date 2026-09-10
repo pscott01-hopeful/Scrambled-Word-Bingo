@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Scrambled Word Bingo™ | Free Online Word Puzzle Game</title>
@@ -1642,13 +1645,16 @@ function resetSameBoard(){
 
 
 function dailyDateKey(){
- const d=new Date();
- return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+ const parts=new Intl.DateTimeFormat("en-US",{
+   timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit"
+ }).formatToParts(new Date());
+ const get=t=>(parts.find(p=>p.type===t)||{}).value||"";
+ return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 function dailyCalendarNumber(){
- const d=new Date();
- return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
+ const [y,m,d]=dailyDateKey().split("-").map(Number);
+ return Math.floor(Date.UTC(y,m-1,d)/86400000);
 }
 function dailyCategoryPlan(){
  const dayNumber=dailyCalendarNumber();
@@ -1664,7 +1670,11 @@ function dailyUniqueBank(category){
    const k=normalizeAnswer(entry[0]).toLowerCase();
    if(k && k!=="faith" && !map.has(k))map.set(k,entry);
  });
- return [...map.values()];
+ // Canonical alphabetical order makes the Daily Puzzle identical for every
+ // player running the same published word bank, regardless of local history.
+ return [...map.entries()]
+   .sort((a,b)=>a[0].localeCompare(b[0]))
+   .map(([,entry])=>entry);
 }
 function dailyRotationWords(category,occurrence,count){
  const bank=dailyUniqueBank(category);
@@ -8652,25 +8662,24 @@ window.SWB_HINT_AUDIT={
   function saveDailyResult(){
     if(!isDaily())return;
     const today=dateKey();
-    let result=null;
-    try{result=JSON.parse(localStorage.getItem(RESULT_PREFIX+today)||"null");}catch(e){}
-    if(!result){
-      result={
-        date:today,
-        score:getNumber("score"),
-        seconds:(function(){
-          try{
-            if(typeof timerEnabled!=="undefined" && timerEnabled && typeof seconds!=="undefined") return Number(seconds)||0;
-          }catch(e){}
-          return dailyStartedAt ? Math.max(0,Math.round((Date.now()-dailyStartedAt)/1000)) : 0;
-        })(),
-        hints:getHints(),
-        streak:updateStreak(today),
-        leaderboardStatus:"ready_for_online_connection"
-      };
-      try{localStorage.setItem(RESULT_PREFIX+today,JSON.stringify(result));}catch(e){}
-    }
+    const result={
+      date:today,
+      score:getNumber("score"),
+      seconds:(function(){
+        try{
+          if(typeof timerEnabled!=="undefined" && timerEnabled && typeof seconds!=="undefined") return Number(seconds)||0;
+        }catch(e){}
+        return dailyStartedAt ? Math.max(0,Math.round((Date.now()-dailyStartedAt)/1000)) : 0;
+      })(),
+      hints:getHints(),
+      streak:updateStreak(today),
+      leaderboardStatus:"ready_for_online_connection"
+    };
+    try{localStorage.setItem(RESULT_PREFIX+today,JSON.stringify(result));}catch(e){}
     showResult(result);
+    setTimeout(function(){
+      try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
+    },180);
   }
   function watchCompletion(){
     const summary=document.getElementById("summaryModal");
@@ -10342,6 +10351,9 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
     const day=dateKey();document.getElementById('swbLeaderboardDate').textContent='Daily Puzzle — '+day;
     modal.classList.add('show');content.className='swb-lb-empty';content.textContent='Loading leaderboard…';
     try{
+      // If this player has already completed today's puzzle, make sure that
+      // saved result reaches Cloudflare before loading the shared standings.
+      if(isDaily()&&getName())await submitSavedDaily();
       const res=await fetch(API+'?date='+encodeURIComponent(day),{method:'GET'});const data=await res.json();
       if(!res.ok||!data.success)throw new Error(data.error||'Unable to load');
       const rows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
@@ -10366,8 +10378,9 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
     }catch(e){if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}
   }
   function submitSavedDaily(){
-    if(!isDaily())return;let r=null;try{r=JSON.parse(localStorage.getItem(RESULT_PREFIX+dateKey())||'null');}catch(e){}
-    if(r)postResult(r);
+    if(!isDaily())return Promise.resolve(null);
+    let r=null;try{r=JSON.parse(localStorage.getItem(RESULT_PREFIX+dateKey())||'null');}catch(e){}
+    return r?postResult(r):Promise.resolve(null);
   }
 
   document.addEventListener('click',function(e){
