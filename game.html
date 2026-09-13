@@ -10502,6 +10502,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
   const NAME_KEY='swb_daily_leaderboard_name_v1';
   const VISITOR_KEY='swb_analytics_id_v1';
   const RESULT_PREFIX='swb_daily_result_v44_';
+  const SUBMITTED_PREFIX='swb_daily_submitted_v2_';
   let nicknameResolve=null;
 
   function dateKey(){
@@ -10570,31 +10571,67 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
       if(isDaily()&&getName())await submitSavedDaily();
       const res=await fetch(API+'?date='+encodeURIComponent(day),{method:'GET'});const data=await res.json();
       if(!res.ok||!data.success)throw new Error(data.error||'Unable to load');
-      const rows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
-      if(!rows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
+      const rawRows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
+      if(!rawRows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
+
+      // Normalize older/newer leaderboard payloads, keep one best result per player,
+      // then calculate the visible ranking in the game so blank server rank fields
+      // can never leave the Rank column empty.
+      const bestByPlayer=new Map();
+      rawRows.forEach(function(r){
+        const name=cleanName(r.name||r.playerName||r.nickname||'Player')||'Player';
+        const key=String(r.visitorId||r.playerId||name).trim().toLowerCase();
+        const row={
+          name:name,
+          score:Number(r.score)||0,
+          timeSeconds:Math.max(0,Number(r.timeSeconds!=null?r.timeSeconds:(r.seconds!=null?r.seconds:r.time))||0),
+          hints:Math.max(0,Number(r.hints)||0),
+          streak:Math.max(0,Number(r.streak)||0)
+        };
+        const prior=bestByPlayer.get(key);
+        // Best result = higher score, then faster time, then fewer hints.
+        if(!prior || row.score>prior.score ||
+          (row.score===prior.score && row.timeSeconds<prior.timeSeconds) ||
+          (row.score===prior.score && row.timeSeconds===prior.timeSeconds && row.hints<prior.hints)){
+          bestByPlayer.set(key,row);
+        }
+      });
+      const rows=Array.from(bestByPlayer.values()).sort(function(a,b){
+        return (b.score-a.score)||(a.timeSeconds-b.timeSeconds)||(a.hints-b.hints)||a.name.localeCompare(b.name);
+      });
+
       let html='<table class="swb-lb-table"><thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Hints</th><th>Streak</th></tr></thead><tbody>';
-      rows.forEach(function(r){html+='<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds!=null?r.timeSeconds:(r.seconds!=null?r.seconds:r.time)))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
+      rows.forEach(function(r,i){html+='<tr><td>'+esc(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
       html+='</tbody></table>';content.className='';content.innerHTML=html;
     }catch(err){content.className='swb-lb-empty';content.textContent='The Daily Puzzle Leaderboard is temporarily unavailable.';}
   }
 
-  async function postResult(result){
+  async function postResult(result,force){
     if(!result)return;
     let name=getName(); if(!name)name=await askNickname(false); if(!name)return;
     const pid=visitorId();
-    const body={date:result.date||dateKey(),playerId:pid,visitorId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,time:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
+    const day=result.date||dateKey();
+    const body={date:day,playerId:pid,visitorId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,time:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
+    const signature=[name,body.score,body.timeSeconds,body.hints,body.streak].join('|');
+    const submittedKey=SUBMITTED_PREFIX+day+'_'+pid;
+    try{
+      if(!force && localStorage.getItem(submittedKey)===signature)return {success:true,alreadySubmitted:true};
+    }catch(e){}
     try{
       const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       let data=null;try{data=await res.json();}catch(_){}
-      if(data&&data.success&&data.rank){try{localStorage.setItem('swb_daily_rank_v1_'+(result.date||dateKey()),String(data.rank));}catch(e){}}
+      if(res.ok&&data&&data.success){
+        try{localStorage.setItem(submittedKey,signature);}catch(e){}
+        if(data.rank){try{localStorage.setItem('swb_daily_rank_v1_'+day,String(data.rank));}catch(e){}}
+      }
       if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();
       return data;
     }catch(e){if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}
   }
-  function submitSavedDaily(){
+  function submitSavedDaily(force){
     if(!isDaily())return Promise.resolve(null);
     let r=null;try{r=JSON.parse(localStorage.getItem(RESULT_PREFIX+dateKey())||'null');}catch(e){}
-    return r?postResult(r):Promise.resolve(null);
+    return r?postResult(r,!!force):Promise.resolve(null);
   }
 
   document.addEventListener('click',function(e){
