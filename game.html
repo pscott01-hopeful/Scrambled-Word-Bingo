@@ -10673,6 +10673,118 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
+
+<!-- SWB Daily Puzzle Branded Bingo Board Share v3 -->
+<style id="swb-daily-share-v3-style">
+.swbDailyShareBtnV1{background:linear-gradient(180deg,#20a45b,#14763f)!important;color:#fff!important;border:0!important;border-radius:10px!important;padding:9px 14px!important;font-weight:900!important;cursor:pointer!important;box-shadow:0 2px 5px rgba(0,0,0,.18)!important}
+#swbDailyShareToastV1{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100001;background:#152238;color:#fff;padding:10px 16px;border-radius:999px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s ease}
+#swbDailyShareToastV1.show{opacity:1}
+</style>
+<div id="swbDailyShareToastV1" role="status" aria-live="polite"></div>
+<script id="swb-daily-share-v3">
+(function(){
+  const RESULT_PREFIX='swb_daily_result_v44_';
+  const NAME_KEY='swb_daily_leaderboard_name_v1';
+  const GAME_URL='https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/game.html';
+  const FEATURE_WORD='SMILE';
+
+  function day(){
+    try{if(typeof dailyDateKey==='function')return dailyDateKey();}catch(e){}
+    const p=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const g=t=>(p.find(x=>x.type===t)||{}).value||'';
+    return g('year')+'-'+g('month')+'-'+g('day');
+  }
+  function daily(){try{return playMode==='daily';}catch(e){return false;}}
+  function result(){try{return JSON.parse(localStorage.getItem(RESULT_PREFIX+day())||'null');}catch(e){return null;}}
+  function nickname(){try{return (localStorage.getItem(NAME_KEY)||'').trim();}catch(e){return '';}}
+  function rank(){try{return localStorage.getItem('swb_daily_rank_v1_'+day())||'';}catch(e){return '';}}
+  function fmtTime(sec){sec=Math.max(0,Number(sec)||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
+  function prettyDate(iso){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');return m?(Number(m[2])+'/'+Number(m[3])+'/'+m[1]):iso;}
+  function buildText(r){
+    if(!r)return '';
+    const n=nickname(),rk=rank();
+    const lines=[
+      '🎉 SCRAMBLED WORD BINGO™ DAILY SCORECARD',
+      'Featured word: '+FEATURE_WORD,
+      'Date: '+prettyDate(r.date||day()),
+      'Score: '+(Number(r.score)||0)+' points',
+      'Time: '+fmtTime(r.seconds),
+      'Hints Used: '+(Number(r.hints)||0),
+      'Daily Streak: '+(Number(r.streak)||0)+' day'+(Number(r.streak)===1?'':'s')
+    ];
+    if(rk)lines.push('Leaderboard Rank: #'+String(rk).replace(/^#/,''));
+    if(n)lines.push('Player: '+n);
+    lines.push('', 'I completed today’s Scrambled Word Bingo™ Daily Puzzle!', 'Play today’s puzzle:', GAME_URL);
+    return lines.join('\n');
+  }
+  function toast(msg){const t=document.getElementById('swbDailyShareToastV1');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+  async function copyText(text){
+    try{await navigator.clipboard.writeText(text);return true;}catch(e){}
+    try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return ok;}catch(e){return false;}
+  }
+
+  function rounded(ctx,x,y,w,h,r){
+    const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+h,rr);ctx.arcTo(x+w,y+h,x,y+h,rr);ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
+  }
+  function drawCentered(ctx,text,x,y,font,fill){ctx.font=font;ctx.fillStyle=fill;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y);}
+  function makeCard(r){
+    const c=document.createElement('canvas');c.width=1080;c.height=1350;const ctx=c.getContext('2d');
+    ctx.fillStyle='#f5f0ff';ctx.fillRect(0,0,c.width,c.height);
+    rounded(ctx,40,40,1000,1270,34);ctx.fillStyle='#ffffff';ctx.fill();ctx.lineWidth=6;ctx.strokeStyle='#5b2ca0';ctx.stroke();
+    drawCentered(ctx,'SCRAMBLED WORD BINGO™',540,105,'900 48px Arial','#5b2ca0');
+    drawCentered(ctx,'DAILY PUZZLE SCORECARD',540,160,'800 30px Arial','#173b72');
+    drawCentered(ctx,prettyDate(r.date||day()),540,205,'700 24px Arial','#64748b');
+
+    const left=115,top=285,tile=170,gap=8;
+    const letters=['B','I','N','G','O'];
+    letters.forEach((L,i)=>drawCentered(ctx,L,left+i*(tile+gap)+tile/2,255,'900 38px Arial','#173b72'));
+    const featureIndex=6;
+    for(let row=0;row<5;row++){
+      for(let col=0;col<5;col++){
+        const idx=row*5+col,x=left+col*(tile+gap),y=top+row*(tile+gap);
+        rounded(ctx,x,y,tile,tile,18);
+        if(idx===12){ctx.fillStyle='#ffd84d';ctx.fill();ctx.strokeStyle='#d99b00';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,'FREE',x+tile/2,y+tile/2,'900 30px Arial','#5b2ca0');}
+        else if(idx===featureIndex){ctx.fillStyle='#21a85a';ctx.fill();ctx.strokeStyle='#13733e';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,FEATURE_WORD,x+tile/2,y+tile/2,'900 28px Arial','#ffffff');}
+        else{ctx.fillStyle='#5b2ca0';ctx.fill();ctx.strokeStyle='#3e1d73';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,'COVERED',x+tile/2,y+tile/2,'800 19px Arial','#ffffff');}
+      }
+    }
+
+    const sy=1195;ctx.fillStyle='#f3f6fb';rounded(ctx,105,1170,870,90,18);ctx.fill();
+    const rk=rank();
+    drawCentered(ctx,'Score '+(Number(r.score)||0)+'  •  Time '+fmtTime(r.seconds)+'  •  Hints '+(Number(r.hints)||0)+'  •  Streak '+(Number(r.streak)||0),540,1199,'800 24px Arial','#173b72');
+    const extra=(rk?'Rank #'+String(rk).replace(/^#/,'')+'  •  ':'')+(nickname()?'Player '+nickname():'');
+    if(extra)drawCentered(ctx,extra,540,1238,'700 20px Arial','#5b2ca0');
+    drawCentered(ctx,'Can you beat my Daily Puzzle?',540,1285,'800 24px Arial','#14763f');
+    return c;
+  }
+  function canvasBlob(canvas){return new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));}
+  async function shareDaily(){
+    const r=result();if(!r){toast('Complete today’s Daily Puzzle first.');return;}
+    const text=buildText(r),canvas=makeCard(r),blob=await canvasBlob(canvas);
+    if(blob&&navigator.share&&window.File){
+      try{
+        const file=new File([blob],'scrambled-word-bingo-daily-scorecard.png',{type:'image/png'});
+        const payload={title:'Scrambled Word Bingo™ Daily Scorecard',text,files:[file]};
+        if(!navigator.canShare||navigator.canShare({files:[file]})){await navigator.share(payload);return;}
+      }catch(e){if(e&&e.name==='AbortError')return;}
+    }
+    if(await copyText(text))toast('Daily scorecard copied!');
+    else window.prompt('Copy your Daily Puzzle scorecard:',text);
+  }
+  function ensureButton(){
+    if(!daily())return;const r=result();if(!r)return;const modal=document.getElementById('summaryModal');if(!modal)return;
+    let actions=modal.querySelector('.swb-daily-summary-actions');
+    if(!actions){const gridEl=document.getElementById('summaryGrid');if(!gridEl)return;actions=document.createElement('div');actions.className='swb-daily-summary-actions';actions.style.cssText='display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 4px';gridEl.insertAdjacentElement('afterend',actions);}
+    if(document.getElementById('swbDailyShareBtnV1'))return;
+    const b=document.createElement('button');b.type='button';b.id='swbDailyShareBtnV1';b.className='btn swbDailyShareBtnV1';b.textContent='📣 SHARE MY BINGO SCORECARD';b.addEventListener('click',shareDaily);actions.insertBefore(b,actions.firstChild);
+  }
+  const modal=document.getElementById('summaryModal');
+  if(modal&&window.MutationObserver)new MutationObserver(()=>{if(modal.classList.contains('show'))setTimeout(ensureButton,90);}).observe(modal,{attributes:true,attributeFilter:['class']});
+  document.addEventListener('click',function(e){const b=e.target&&e.target.closest?e.target.closest('button'):null;if(b&&b.id==='dailyMode')setTimeout(ensureButton,250);},true);
+  window.SWBDailyShareV3={share:shareDaily,text:function(){return buildText(result());},sync:ensureButton,preview:function(){const r=result();return r?makeCard(r):null;}};
+})();
+</script>
+
 <!-- SWB Daily Puzzle deterministic board v3: stable selection/order + same-device manifest + replay lock -->
 
 
