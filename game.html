@@ -8748,6 +8748,12 @@ window.SWB_HINT_AUDIT={
       localStorage.setItem("swb_daily_completed_"+today,"1");
     }catch(e){}
     showResult(result);
+    // Refresh the Daily completion summary and add the share button only after
+    // today's result has been saved. This avoids a race with the summary modal.
+    setTimeout(function(){
+      try{if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}catch(e){}
+      try{if(window.SWBDailyShareV3&&window.SWBDailyShareV3.sync)window.SWBDailyShareV3.sync();}catch(e){}
+    },60);
     [180,1200,3500].forEach(function(delay){
       setTimeout(function(){
         try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
@@ -10567,7 +10573,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
       const rows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
       if(!rows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
       let html='<table class="swb-lb-table"><thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Hints</th><th>Streak</th></tr></thead><tbody>';
-      rows.forEach(function(r){html+='<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds!=null?r.timeSeconds:r.seconds))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
+      rows.forEach(function(r){html+='<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds!=null?r.timeSeconds:(r.seconds!=null?r.seconds:r.time)))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
       html+='</tbody></table>';content.className='';content.innerHTML=html;
     }catch(err){content.className='swb-lb-empty';content.textContent='The Daily Puzzle Leaderboard is temporarily unavailable.';}
   }
@@ -10576,7 +10582,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
     if(!result)return;
     let name=getName(); if(!name)name=await askNickname(false); if(!name)return;
     const pid=visitorId();
-    const body={date:result.date||dateKey(),playerId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
+    const body={date:result.date||dateKey(),playerId:pid,visitorId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,time:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
     try{
       const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       let data=null;try{data=await res.json();}catch(_){}
