@@ -10220,10 +10220,9 @@ window.SWB_HINT_AUDIT={
         referrer:document.referrer ? new URL(document.referrer).hostname : '',
         props:cleanProps(props)
       });
-      if(navigator.sendBeacon){
-        const blob=new Blob([payload],{type:'application/json'});
-        if(navigator.sendBeacon(ENDPOINT,blob)) return;
-      }
+      // Send analytics with fetch so Cloudflare records a normal POST request.
+      // Avoid sendBeacon here because successful beacons return early and can make
+      // analytics POST events difficult to verify in Workers Observability.
       fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true,mode:'cors'}).catch(()=>{});
     } catch(e){}
   }
