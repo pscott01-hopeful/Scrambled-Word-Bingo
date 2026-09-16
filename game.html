@@ -6774,7 +6774,6 @@ window.SWB_HINT_AUDIT={
 
   function isSolved(tile){
     return tile.classList.contains("solved") ||
-           tile.classList.contains("faith-solved") ||
            tile.classList.contains("correct") ||
            tile.classList.contains("marked") ||
            tile.classList.contains("done");
@@ -8749,12 +8748,6 @@ window.SWB_HINT_AUDIT={
       localStorage.setItem("swb_daily_completed_"+today,"1");
     }catch(e){}
     showResult(result);
-    // Refresh the Daily completion summary and add the share button only after
-    // today's result has been saved. This avoids a race with the summary modal.
-    setTimeout(function(){
-      try{if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}catch(e){}
-      try{if(window.SWBDailyShareV3&&window.SWBDailyShareV3.sync)window.SWBDailyShareV3.sync();}catch(e){}
-    },60);
     [180,1200,3500].forEach(function(delay){
       setTimeout(function(){
         try{if(window.SWBDailyLeaderboard&&window.SWBDailyLeaderboard.submitSaved)window.SWBDailyLeaderboard.submitSaved();}catch(e){}
@@ -9828,7 +9821,7 @@ window.SWB_HINT_AUDIT={
    const more=document.getElementById('swbGetMoreGamesTop'); if(!more)return;
    let box=document.getElementById('swbVisibleBalanceV86');
    if(!box){box=document.createElement('div');box.id='swbVisibleBalanceV86';box.setAttribute('aria-live','polite');}
-   if(box.nextElementSibling!==more)more.insertAdjacentElement('beforebegin',box);
+   const mobileUtility=document.getElementById('swbMobileUtilityRowV96'); if(!(window.matchMedia('(max-width:820px)').matches && mobileUtility) && box.nextElementSibling!==more)more.insertAdjacentElement('beforebegin',box);
    const api=window.SWBAccessV74;
    if(!api){box.innerHTML='<div class="swb-bal-title">TODAY\'S GAMES</div>Checking balance…';return;}
    if(api.unlimited()){box.innerHTML='<div class="swb-bal-title">GAME BALANCE</div>🎮 Unlimited Games';return;}
@@ -10220,10 +10213,9 @@ window.SWB_HINT_AUDIT={
         referrer:document.referrer ? new URL(document.referrer).hostname : '',
         props:cleanProps(props)
       });
-      // Send analytics with fetch so Cloudflare records a normal POST request.
-      // Avoid sendBeacon here because successful beacons return early and can make
-      // analytics POST events difficult to verify in Workers Observability.
-      fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true,mode:'cors'}).catch(()=>{});
+      // Send analytics as a simple cross-origin POST without a JSON Content-Type
+      // so the browser does not require a CORS preflight before the analytics event.
+      fetch(ENDPOINT,{method:'POST',body:payload,keepalive:true,mode:'cors'}).catch(()=>{});
     } catch(e){}
   }
   window.swbTrack=track;
@@ -10502,7 +10494,6 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
   const NAME_KEY='swb_daily_leaderboard_name_v1';
   const VISITOR_KEY='swb_analytics_id_v1';
   const RESULT_PREFIX='swb_daily_result_v44_';
-  const SUBMITTED_PREFIX='swb_daily_submitted_v2_';
   let nicknameResolve=null;
 
   function dateKey(){
@@ -10521,18 +10512,6 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
       if(!id){id='swb_'+(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());localStorage.setItem(VISITOR_KEY,id);}
       return id;
     }catch(e){return 'swb_'+Math.random().toString(36).slice(2)+Date.now();}
-  }
-  async function leaderboardPlayerId(name){
-    const base=visitorId()+'|'+String(name||'').trim().toLowerCase();
-    try{
-      if(window.crypto&&crypto.subtle&&window.TextEncoder){
-        const bytes=new TextEncoder().encode(base);
-        const digest=await crypto.subtle.digest('SHA-256',bytes);
-        const hex=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
-        return 'swblb_'+hex.slice(0,32);
-      }
-    }catch(e){}
-    return ('swblb_'+base.replace(/[^A-Za-z0-9_-]+/g,'_')).slice(0,120);
   }
   function formatTime(sec){sec=Math.max(0,Number(sec)||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -10583,67 +10562,31 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
       if(isDaily()&&getName())await submitSavedDaily();
       const res=await fetch(API+'?date='+encodeURIComponent(day),{method:'GET'});const data=await res.json();
       if(!res.ok||!data.success)throw new Error(data.error||'Unable to load');
-      const rawRows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
-      if(!rawRows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
-
-      // Normalize older/newer leaderboard payloads, keep one best result per player,
-      // then calculate the visible ranking in the game so blank server rank fields
-      // can never leave the Rank column empty.
-      const bestByPlayer=new Map();
-      rawRows.forEach(function(r){
-        const name=cleanName(r.name||r.playerName||r.nickname||'Player')||'Player';
-        const key=name.trim().toLowerCase();
-        const row={
-          name:name,
-          score:Number(r.score)||0,
-          timeSeconds:Math.max(0,Number(r.timeSeconds!=null?r.timeSeconds:(r.seconds!=null?r.seconds:r.time))||0),
-          hints:Math.max(0,Number(r.hints)||0),
-          streak:Math.max(0,Number(r.streak)||0)
-        };
-        const prior=bestByPlayer.get(key);
-        // Best result = higher score, then faster time, then fewer hints.
-        if(!prior || row.score>prior.score ||
-          (row.score===prior.score && row.timeSeconds<prior.timeSeconds) ||
-          (row.score===prior.score && row.timeSeconds===prior.timeSeconds && row.hints<prior.hints)){
-          bestByPlayer.set(key,row);
-        }
-      });
-      const rows=Array.from(bestByPlayer.values()).sort(function(a,b){
-        return (b.score-a.score)||(a.timeSeconds-b.timeSeconds)||(a.hints-b.hints)||a.name.localeCompare(b.name);
-      });
-
+      const rows=Array.isArray(data.leaderboard)?data.leaderboard:(Array.isArray(data.entries)?data.entries:[]);
+      if(!rows.length){content.className='swb-lb-empty';content.textContent='No completed Daily Puzzle scores have been posted yet today.';return;}
       let html='<table class="swb-lb-table"><thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Hints</th><th>Streak</th></tr></thead><tbody>';
-      rows.forEach(function(r,i){html+='<tr><td>'+esc(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
+      rows.forEach(function(r){html+='<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.score)+'</td><td>'+esc(formatTime(r.timeSeconds!=null?r.timeSeconds:r.seconds))+'</td><td>'+esc(r.hints)+'</td><td>'+esc(r.streak)+'</td></tr>';});
       html+='</tbody></table>';content.className='';content.innerHTML=html;
     }catch(err){content.className='swb-lb-empty';content.textContent='The Daily Puzzle Leaderboard is temporarily unavailable.';}
   }
 
-  async function postResult(result,force){
+  async function postResult(result){
     if(!result)return;
     let name=getName(); if(!name)name=await askNickname(false); if(!name)return;
-    const pid=await leaderboardPlayerId(name);
-    const day=result.date||dateKey();
-    const body={date:day,playerId:pid,visitorId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,time:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
-    const signature=[name,body.score,body.timeSeconds,body.hints,body.streak].join('|');
-    const submittedKey=SUBMITTED_PREFIX+day+'_'+pid;
-    try{
-      if(!force && localStorage.getItem(submittedKey)===signature)return {success:true,alreadySubmitted:true};
-    }catch(e){}
+    const pid=visitorId();
+    const body={date:result.date||dateKey(),playerId:pid,name:name,score:Number(result.score)||0,timeSeconds:Number(result.seconds)||0,hints:Number(result.hints)||0,streak:Number(result.streak)||0};
     try{
       const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       let data=null;try{data=await res.json();}catch(_){}
-      if(res.ok&&data&&data.success){
-        try{localStorage.setItem(submittedKey,signature);}catch(e){}
-        if(data.rank){try{localStorage.setItem('swb_daily_rank_v1_'+day,String(data.rank));}catch(e){}}
-      }
+      if(data&&data.success&&data.rank){try{localStorage.setItem('swb_daily_rank_v1_'+(result.date||dateKey()),String(data.rank));}catch(e){}}
       if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();
       return data;
     }catch(e){if(window.SWBRefreshDailySummary)window.SWBRefreshDailySummary();}
   }
-  function submitSavedDaily(force){
+  function submitSavedDaily(){
     if(!isDaily())return Promise.resolve(null);
     let r=null;try{r=JSON.parse(localStorage.getItem(RESULT_PREFIX+dateKey())||'null');}catch(e){}
-    return r?postResult(r,!!force):Promise.resolve(null);
+    return r?postResult(r):Promise.resolve(null);
   }
 
   document.addEventListener('click',function(e){
@@ -10728,118 +10671,6 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
-
-<!-- SWB Daily Puzzle Branded Bingo Board Share v3 -->
-<style id="swb-daily-share-v3-style">
-.swbDailyShareBtnV1{background:linear-gradient(180deg,#20a45b,#14763f)!important;color:#fff!important;border:0!important;border-radius:10px!important;padding:9px 14px!important;font-weight:900!important;cursor:pointer!important;box-shadow:0 2px 5px rgba(0,0,0,.18)!important}
-#swbDailyShareToastV1{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100001;background:#152238;color:#fff;padding:10px 16px;border-radius:999px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s ease}
-#swbDailyShareToastV1.show{opacity:1}
-</style>
-<div id="swbDailyShareToastV1" role="status" aria-live="polite"></div>
-<script id="swb-daily-share-v3">
-(function(){
-  const RESULT_PREFIX='swb_daily_result_v44_';
-  const NAME_KEY='swb_daily_leaderboard_name_v1';
-  const GAME_URL='https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/game.html';
-  const FEATURE_WORD='SMILE';
-
-  function day(){
-    try{if(typeof dailyDateKey==='function')return dailyDateKey();}catch(e){}
-    const p=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
-    const g=t=>(p.find(x=>x.type===t)||{}).value||'';
-    return g('year')+'-'+g('month')+'-'+g('day');
-  }
-  function daily(){try{return playMode==='daily';}catch(e){return false;}}
-  function result(){try{return JSON.parse(localStorage.getItem(RESULT_PREFIX+day())||'null');}catch(e){return null;}}
-  function nickname(){try{return (localStorage.getItem(NAME_KEY)||'').trim();}catch(e){return '';}}
-  function rank(){try{return localStorage.getItem('swb_daily_rank_v1_'+day())||'';}catch(e){return '';}}
-  function fmtTime(sec){sec=Math.max(0,Number(sec)||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
-  function prettyDate(iso){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');return m?(Number(m[2])+'/'+Number(m[3])+'/'+m[1]):iso;}
-  function buildText(r){
-    if(!r)return '';
-    const n=nickname(),rk=rank();
-    const lines=[
-      '🎉 SCRAMBLED WORD BINGO™ DAILY SCORECARD',
-      'Featured word: '+FEATURE_WORD,
-      'Date: '+prettyDate(r.date||day()),
-      'Score: '+(Number(r.score)||0)+' points',
-      'Time: '+fmtTime(r.seconds),
-      'Hints Used: '+(Number(r.hints)||0),
-      'Daily Streak: '+(Number(r.streak)||0)+' day'+(Number(r.streak)===1?'':'s')
-    ];
-    if(rk)lines.push('Leaderboard Rank: #'+String(rk).replace(/^#/,''));
-    if(n)lines.push('Player: '+n);
-    lines.push('', 'I completed today’s Scrambled Word Bingo™ Daily Puzzle!', 'Play today’s puzzle:', GAME_URL);
-    return lines.join('\n');
-  }
-  function toast(msg){const t=document.getElementById('swbDailyShareToastV1');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
-  async function copyText(text){
-    try{await navigator.clipboard.writeText(text);return true;}catch(e){}
-    try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return ok;}catch(e){return false;}
-  }
-
-  function rounded(ctx,x,y,w,h,r){
-    const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+h,rr);ctx.arcTo(x+w,y+h,x,y+h,rr);ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
-  }
-  function drawCentered(ctx,text,x,y,font,fill){ctx.font=font;ctx.fillStyle=fill;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y);}
-  function makeCard(r){
-    const c=document.createElement('canvas');c.width=1080;c.height=1350;const ctx=c.getContext('2d');
-    ctx.fillStyle='#f5f0ff';ctx.fillRect(0,0,c.width,c.height);
-    rounded(ctx,40,40,1000,1270,34);ctx.fillStyle='#ffffff';ctx.fill();ctx.lineWidth=6;ctx.strokeStyle='#5b2ca0';ctx.stroke();
-    drawCentered(ctx,'SCRAMBLED WORD BINGO™',540,105,'900 48px Arial','#5b2ca0');
-    drawCentered(ctx,'DAILY PUZZLE SCORECARD',540,160,'800 30px Arial','#173b72');
-    drawCentered(ctx,prettyDate(r.date||day()),540,205,'700 24px Arial','#64748b');
-
-    const left=115,top=285,tile=170,gap=8;
-    const letters=['B','I','N','G','O'];
-    letters.forEach((L,i)=>drawCentered(ctx,L,left+i*(tile+gap)+tile/2,255,'900 38px Arial','#173b72'));
-    const featureIndex=6;
-    for(let row=0;row<5;row++){
-      for(let col=0;col<5;col++){
-        const idx=row*5+col,x=left+col*(tile+gap),y=top+row*(tile+gap);
-        rounded(ctx,x,y,tile,tile,18);
-        if(idx===12){ctx.fillStyle='#ffd84d';ctx.fill();ctx.strokeStyle='#d99b00';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,'FREE',x+tile/2,y+tile/2,'900 30px Arial','#5b2ca0');}
-        else if(idx===featureIndex){ctx.fillStyle='#21a85a';ctx.fill();ctx.strokeStyle='#13733e';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,FEATURE_WORD,x+tile/2,y+tile/2,'900 28px Arial','#ffffff');}
-        else{ctx.fillStyle='#5b2ca0';ctx.fill();ctx.strokeStyle='#3e1d73';ctx.lineWidth=4;ctx.stroke();drawCentered(ctx,'COVERED',x+tile/2,y+tile/2,'800 19px Arial','#ffffff');}
-      }
-    }
-
-    const sy=1195;ctx.fillStyle='#f3f6fb';rounded(ctx,105,1170,870,90,18);ctx.fill();
-    const rk=rank();
-    drawCentered(ctx,'Score '+(Number(r.score)||0)+'  •  Time '+fmtTime(r.seconds)+'  •  Hints '+(Number(r.hints)||0)+'  •  Streak '+(Number(r.streak)||0),540,1199,'800 24px Arial','#173b72');
-    const extra=(rk?'Rank #'+String(rk).replace(/^#/,'')+'  •  ':'')+(nickname()?'Player '+nickname():'');
-    if(extra)drawCentered(ctx,extra,540,1238,'700 20px Arial','#5b2ca0');
-    drawCentered(ctx,'Can you beat my Daily Puzzle?',540,1285,'800 24px Arial','#14763f');
-    return c;
-  }
-  function canvasBlob(canvas){return new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));}
-  async function shareDaily(){
-    const r=result();if(!r){toast('Complete today’s Daily Puzzle first.');return;}
-    const text=buildText(r),canvas=makeCard(r),blob=await canvasBlob(canvas);
-    if(blob&&navigator.share&&window.File){
-      try{
-        const file=new File([blob],'scrambled-word-bingo-daily-scorecard.png',{type:'image/png'});
-        const payload={title:'Scrambled Word Bingo™ Daily Scorecard',text,files:[file]};
-        if(!navigator.canShare||navigator.canShare({files:[file]})){await navigator.share(payload);return;}
-      }catch(e){if(e&&e.name==='AbortError')return;}
-    }
-    if(await copyText(text))toast('Daily scorecard copied!');
-    else window.prompt('Copy your Daily Puzzle scorecard:',text);
-  }
-  function ensureButton(){
-    if(!daily())return;const r=result();if(!r)return;const modal=document.getElementById('summaryModal');if(!modal)return;
-    let actions=modal.querySelector('.swb-daily-summary-actions');
-    if(!actions){const gridEl=document.getElementById('summaryGrid');if(!gridEl)return;actions=document.createElement('div');actions.className='swb-daily-summary-actions';actions.style.cssText='display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 4px';gridEl.insertAdjacentElement('afterend',actions);}
-    if(document.getElementById('swbDailyShareBtnV1'))return;
-    const b=document.createElement('button');b.type='button';b.id='swbDailyShareBtnV1';b.className='btn swbDailyShareBtnV1';b.textContent='📣 SHARE MY BINGO SCORECARD';b.addEventListener('click',shareDaily);actions.insertBefore(b,actions.firstChild);
-  }
-  const modal=document.getElementById('summaryModal');
-  if(modal&&window.MutationObserver)new MutationObserver(()=>{if(modal.classList.contains('show'))setTimeout(ensureButton,90);}).observe(modal,{attributes:true,attributeFilter:['class']});
-  document.addEventListener('click',function(e){const b=e.target&&e.target.closest?e.target.closest('button'):null;if(b&&b.id==='dailyMode')setTimeout(ensureButton,250);},true);
-  window.SWBDailyShareV3={share:shareDaily,text:function(){return buildText(result());},sync:ensureButton,preview:function(){const r=result();return r?makeCard(r):null;}};
-})();
-</script>
-
 <!-- SWB Daily Puzzle deterministic board v3: stable selection/order + same-device manifest + replay lock -->
 
 
@@ -10879,7 +10710,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
         <div class="swbFbField"><label for="swbFbImproveV1">What would you like to see added or improved?</label><textarea id="swbFbImproveV1" maxlength="120" placeholder="Share your idea."></textarea></div>
         <div class="swbFbField"><label for="swbFbAgainV1">Would you play again?</label><select id="swbFbAgainV1" required><option value="">Choose one</option><option value="Yes">Yes</option><option value="Maybe">Maybe</option><option value="No">No</option></select></div>
         <div class="swbFbField"><label for="swbFbNameV1">Name or nickname <span style="font-weight:600">(optional)</span></label><input id="swbFbNameV1" maxlength="40" autocomplete="nickname" placeholder="Optional"><div class="swbFbHint">Please do not enter an email address, phone number, or other private information.</div></div>
-        <div id="swbFeedbackActionsV1"><button type="button" id="swbFeedbackCancelV1">Not Now</button><button type="submit" id="swbFeedbackSubmitV1">SUBMIT FEEDBACK</button></div>
+        <div id="swbFeedbackActionsV1"><button type="button" id="swbFeedbackCancelV1">Not Now</button><button type="submit" id="swbFeedbackSubmitV1">SUBMIT A REVIEW</button></div>
       </form>
     </div>
     <div id="swbFeedbackThanksV1"><h3>Thank you! 🎉</h3><p>Your feedback has been submitted and will help improve Scrambled Word Bingo™.</p><button type="button" id="swbFeedbackDoneV1" style="border:0;border-radius:10px;padding:10px 18px;background:#173b72;color:#fff;font-weight:900;cursor:pointer">DONE</button></div>
@@ -10898,7 +10729,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
  function closeFeedback(){modal.classList.remove('show');document.body.style.overflow='';}
  function placeButton(){
    let btn=document.getElementById('swbFeedbackBtnV1');
-   if(!btn){btn=document.createElement('button');btn.id='swbFeedbackBtnV1';btn.type='button';btn.textContent='💬 SUBMIT FEEDBACK';btn.addEventListener('click',openFeedback);}
+   if(!btn){btn=document.createElement('button');btn.id='swbFeedbackBtnV1';btn.type='button';btn.textContent='💬 SUBMIT A REVIEW';btn.addEventListener('click',openFeedback);}
    const row=document.getElementById('swbUnderGetMoreV82');
    if(row && btn.parentElement!==row)row.appendChild(btn);
    else if(!row){const more=document.getElementById('swbGetMoreGamesTop');if(more && btn.parentElement!==more.parentElement)more.insertAdjacentElement('afterend',btn);}
@@ -10931,7 +10762,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
      document.getElementById('swbFeedbackFormWrapV1').style.display='none';document.getElementById('swbFeedbackThanksV1').style.display='block';
    }catch(ex){
      err.textContent='Your feedback could not be saved right now. Please try again.';err.style.display='block';
-   }finally{submit.disabled=false;submit.textContent='SUBMIT FEEDBACK';}
+   }finally{submit.disabled=false;submit.textContent='SUBMIT A REVIEW';}
  });
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeButton);else placeButton();
  setTimeout(placeButton,250);setTimeout(placeButton,900);setTimeout(placeButton,1800);
@@ -10939,22 +10770,472 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
-<script id="beauty-grooming-boards-v1">
+
+
+<style id="swb-mobile-bottom-row-v4">
+@media (max-width:700px){
+  #swbMobileBottomRowV4{display:grid!important;grid-template-columns:1.35fr 1fr 1fr;gap:6px;width:100%;margin:8px 0 6px;align-items:stretch}
+  #swbMobileBottomRowV4>*{width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;height:58px!important;min-height:58px!important;padding:5px 4px!important;font-size:13px!important;line-height:1.05!important;border-radius:12px!important}
+  #swbMobileBottomRowV4 #swbGetMoreGamesTop{display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:5px 4px!important;font-size:12px!important}
+}
+</style>
+<script id="swb-mobile-bottom-row-v4-js">
 (function(){
-  WORDS["Manicure & Nails"]=[["manicure", "A salon service focused on the hands and nails.", "It often includes shaping, grooming, and polish.", "Cuticles and fingernails receive attention during this service.", "A cosmetic treatment for the hands and fingernails.", "Begins with M and ends with E."], ["pedicure", "A salon service focused on the feet and toenails.", "It may include soaking, shaping, and polish.", "Toenails and the skin of the feet receive attention.", "A cosmetic treatment for the feet and toenails.", "Begins with P and ends with E."], ["polish", "A colorful cosmetic product used on nails.", "It is brushed on in thin coats.", "It dries to leave color or shine on a nail.", "A liquid coating applied to fingernails or toenails.", "Begins with P and ends with H."], ["cuticle", "A thin area of skin at the base of a nail.", "It helps protect the space where the nail grows.", "Nail technicians may gently push this skin back.", "The narrow strip of skin bordering the base of a nail.", "Begins with C and ends with E."], ["acrylic", "A common material used for artificial nail enhancements.", "It is created by combining a liquid and powder.", "It hardens into a durable nail extension or overlay.", "A nail enhancement system made from polymer powder and liquid monomer.", "Begins with A and ends with C."], ["gel", "A nail product cured under a special lamp.", "It can be used for color, overlays, or extensions.", "UV or LED light helps this product harden.", "A light-cured nail coating or enhancement material.", "Begins with G and ends with L."], ["file", "A tool used to shape the free edge of a nail.", "It has an abrasive surface.", "It smooths rough edges and changes nail length or shape.", "A flat abrasive nail-shaping tool.", "Begins with F and ends with E."], ["buffer", "A tool used to smooth or shine the nail surface.", "It is usually softer than a nail file.", "It can reduce ridges and create a polished-looking surface.", "A fine abrasive block or tool used on the nail plate.", "Begins with B and ends with R."], ["clippers", "A small cutting tool used to shorten nails.", "It has two metal blades operated by a lever.", "It trims the free edge before filing.", "A hinged tool designed to cut fingernails or toenails.", "Begins with C and ends with S."], ["top coat", "The finishing layer applied over nail color.", "It can add shine and protect the manicure.", "It is usually the final liquid layer brushed onto polished nails.", "A clear protective finishing coat for nail polish.", "Begins with T and ends with T."], ["base coat", "The first coating applied before nail color.", "It can help polish adhere and protect the natural nail.", "Color is normally applied on top of this layer.", "A preparatory nail coating placed beneath colored polish.", "Begins with B and ends with T."], ["nail art", "Decorative designs created on fingernails or toenails.", "It may use paint, gems, decals, or fine brushes.", "Patterns and pictures can turn a manicure into a tiny canvas.", "Creative decoration applied to nails.", "Begins with N and ends with T."], ["tips", "Artificial pieces attached to extend natural nails.", "They are fitted to the free edge before enhancement product is added.", "They provide extra length for some nail sets.", "Pre-shaped nail extensions attached to natural nails.", "Begins with T and ends with S."], ["forms", "Guides placed under the nail edge to build extensions.", "They support product while an artificial nail is sculpted.", "They are removed after the extension has been shaped and hardened.", "Temporary guides used to sculpt nail extensions.", "Begins with F and ends with S."], ["monomer", "The liquid component commonly used in acrylic nail systems.", "It is mixed with polymer powder.", "A nail brush is dipped into this liquid before picking up powder.", "The liquid that reacts with acrylic powder to form enhancement material.", "Begins with M and ends with R."], ["powder", "A dry product combined with liquid in an acrylic system.", "A brush picks up a small bead after touching liquid.", "It helps create durable overlays and extensions.", "The polymer component used with monomer for acrylic nails.", "Begins with P and ends with R."], ["soak off", "A removal method used for certain nail products.", "Cotton and remover may be wrapped around the nails.", "The product softens so it can be removed without heavy filing.", "A chemical removal process commonly used for gel polish or acrylic.", "Begins with S and ends with F."], ["acetone", "A strong solvent commonly used in nail-product removal.", "It can dissolve many polishes and enhancements.", "Cotton pads may be saturated with it during a soak-off.", "A solvent widely used to remove nail polish and enhancements.", "Begins with A and ends with E."], ["sanitizer", "A product used to reduce germs on hands or surfaces.", "It supports clean salon practices.", "Technicians may use it before beginning a service.", "A substance used to lower the number of microorganisms.", "Begins with S and ends with R."], ["disinfect", "An important salon sanitation action.", "It is performed on reusable tools and hard surfaces.", "Approved products are used after items are properly cleaned.", "To use a chemical process to destroy many harmful microorganisms.", "Begins with D and ends with T."], ["nail bed", "The skin beneath the visible nail plate.", "It supports the nail as it grows forward.", "Its pink appearance can be seen through a healthy natural nail.", "The tissue directly underneath the nail plate.", "Begins with N and ends with D."], ["nail plate", "The hard visible part of a natural nail.", "Polish and enhancements are applied to its surface.", "It grows from the matrix toward the fingertip.", "The hard keratin structure commonly called the nail.", "Begins with N and ends with E."], ["matrix", "The growth area that produces new nail cells.", "It is located beneath the skin near the nail base.", "Damage here can affect how a nail grows.", "The tissue where nail formation begins.", "Begins with M and ends with X."], ["free edge", "The part of the nail that extends beyond the fingertip.", "It is the area commonly trimmed and filed.", "Nail shapes are created by refining this portion.", "The unattached end of the nail plate.", "Begins with F and ends with E."], ["almond", "A nail shape with tapered sides and a softly pointed end.", "Its outline resembles a familiar edible seed.", "It is narrower at the tip than an oval shape.", "A tapered nail shape with a rounded point.", "Begins with A and ends with D."], ["square", "A nail shape with straight sides and a flat tip.", "Its corners are more defined than a round shape.", "The free edge is filed straight across.", "A nail shape with parallel sides and a straight free edge.", "Begins with S and ends with E."], ["coffin", "A long nail shape that tapers and ends with a flat tip.", "It is also sometimes called ballerina.", "Its silhouette narrows toward a squared-off end.", "A tapered nail shape with a straight, narrow free edge.", "Begins with C and ends with N."], ["stiletto", "A dramatic nail shape with a long sharp point.", "It is more pointed than almond.", "Its name is shared with a very high, narrow-heeled shoe.", "A long tapered nail shape ending in a sharp point.", "Begins with S and ends with O."], ["french tip", "A classic nail design with a contrasting free edge.", "It is often created with a natural-looking base color.", "The end of the nail is traditionally painted white.", "A manicure style featuring a distinct color across the nail tip.", "Begins with F and ends with P."], ["rhinestone", "A small sparkling decoration used in nail art.", "It is attached to the nail surface with gel or adhesive.", "It gives a manicure a jewel-like accent.", "A faceted imitation gem used as nail decoration.", "Begins with R and ends with E."]];
-  WORDS["Barber Shop"]=[["barber", "A professional who cuts and grooms hair, often specializing in short styles.", "This person may also shape beards and mustaches.", "Clippers, shears, combs, and razors are common tools of the trade.", "A trained professional who provides haircuts and grooming services.", "Begins with B and ends with R."], ["clippers", "An electric cutting tool used for close haircuts.", "Different guards control how much hair is removed.", "This tool is essential for fades and many short styles.", "Motorized blades used to cut hair to controlled lengths.", "Begins with C and ends with S."], ["trimmer", "A smaller electric grooming tool used for detail work.", "It is useful around edges, necklines, and facial hair.", "Barbers use it for crisp finishing work.", "A compact cutting tool for outlining and close-detail grooming.", "Begins with T and ends with R."], ["razor", "A very sharp grooming tool used for shaving.", "It can create an especially clean neckline or face.", "A straight version may be used for traditional barber services.", "A bladed tool designed to remove hair close to the skin.", "Begins with R and ends with R."], ["shears", "Professional scissors designed for cutting hair.", "They are held with finger and thumb rings.", "Barbers use them for precision cutting and blending.", "Specialized scissors used by hair professionals.", "Begins with S and ends with S."], ["comb", "A toothed grooming tool used to arrange and control hair.", "It helps guide hair while cutting.", "Barbers may use it together with clippers or shears.", "A flat toothed tool for detangling, arranging, or lifting hair.", "Begins with C and ends with B."], ["fade", "A haircut technique that gradually changes from shorter to longer hair.", "The transition should appear smooth without visible weight lines.", "Low, mid, and high are common versions of this style.", "A blended haircut with progressively changing hair length.", "Begins with F and ends with E."], ["taper", "A gradual shortening of hair near the neckline and sideburns.", "It is often more localized than a full fade.", "The hair becomes progressively shorter toward the edges.", "A haircut technique that gradually reduces hair length at the perimeter.", "Begins with T and ends with R."], ["lineup", "A finishing technique that creates crisp hairline edges.", "It is commonly done around the forehead and temples.", "A trimmer is used to make the outline look sharp and even.", "Precision shaping of the natural hairline.", "Begins with L and ends with P."], ["beard", "Facial hair that grows on the chin, cheeks, and jaw.", "It can be trimmed, shaped, faded, or conditioned.", "Many barber services include grooming this facial hair.", "Hair grown on the lower face.", "Begins with B and ends with D."], ["mustache", "Facial hair that grows above the upper lip.", "It can be trimmed with scissors or clippers.", "It may be worn alone or with a beard.", "Hair intentionally grown on the upper lip.", "Begins with M and ends with E."], ["sideburns", "Sections of facial hair extending down in front of the ears.", "They connect the haircut area toward the face.", "Barbers shape their length and outline during a haircut.", "Hair growing along the sides of the face in front of the ears.", "Begins with S and ends with S."], ["neckline", "The lower boundary of a haircut at the back of the neck.", "It may be tapered, rounded, or squared.", "Barbers clean this area during finishing work.", "The finished lower edge of hair at the nape.", "Begins with N and ends with E."], ["nape", "The back part of the neck just below the hairline.", "This area is important when finishing a haircut.", "Loose hairs are often brushed away from here.", "The back of the neck.", "Begins with N and ends with E."], ["guard", "An attachment placed on clippers to control cutting length.", "Different numbers leave different amounts of hair.", "It snaps onto the clipper blade before cutting.", "A clipper attachment that sets the length of hair left behind.", "Begins with G and ends with D."], ["cape", "A protective covering placed around a client during a haircut.", "It keeps loose hair off clothing.", "It fastens around the neck before the service begins.", "A drape worn by a client to protect clothing during grooming services.", "Begins with C and ends with E."], ["barbicide", "A well-known disinfectant used in barbering and cosmetology.", "Combs and certain tools may be immersed in it after cleaning.", "It is commonly recognized by its blue color in salon containers.", "A professional disinfectant brand widely used for salon and barber tools.", "Begins with B and ends with E."], ["hot towel", "A warm cloth used during traditional grooming services.", "It can soften facial hair before shaving.", "It is often associated with a relaxing straight-razor service.", "A heated towel applied to the face or skin during barber services.", "Begins with H and ends with L."], ["lather", "A foamy preparation used before shaving.", "It helps provide slip and moisture for the razor.", "A brush may be used to spread it across the beard area.", "Foam or cream worked into a froth for shaving.", "Begins with L and ends with R."], ["pomade", "A styling product often used for shine and control.", "It works well for slick or structured hairstyles.", "A barber may apply a small amount after the haircut.", "A hair styling product that provides hold, definition, and often shine.", "Begins with P and ends with E."], ["brush", "A grooming tool with bristles.", "It can smooth hair and remove loose clippings.", "Some styles use it to train hair into waves.", "A bristled tool used to groom, smooth, or clean hair.", "Begins with B and ends with H."], ["waves", "A patterned hairstyle created by training short textured hair.", "Regular brushing and compression help form the pattern.", "The style often appears as ripples around the head.", "A short-hair pattern of connected ripple-like curves.", "Begins with W and ends with S."], ["part", "A visible line where hair is separated into sections.", "It can be natural or deliberately cut in for emphasis.", "A hard version may be created with clippers or a razor.", "A line dividing hair into different directions or sections.", "Begins with P and ends with T."], ["blend", "A cutting skill used to remove visible lines between lengths.", "It creates a smooth transition in a haircut.", "Good fades depend heavily on this technique.", "To merge different hair lengths so the transition looks seamless.", "Begins with B and ends with D."], ["texture", "The look and feel of hair or the variation created within a haircut.", "It may be natural or enhanced with cutting techniques.", "Point cutting and thinning can change this quality.", "The surface character, movement, or strand pattern of hair.", "Begins with T and ends with E."], ["chair", "The adjustable seat where a barber client sits.", "It may raise, lower, recline, and rotate.", "The client remains in this seat for most of the service.", "A specialized adjustable seat used for barbering services.", "Begins with C and ends with R."], ["station", "The barber's individual work area.", "Tools, mirror, products, and supplies are organized here.", "Each professional in a shop may have a separate one.", "A designated barber work area equipped for client services.", "Begins with S and ends with N."], ["aftershave", "A product applied to skin after shaving.", "It may soothe, refresh, or lightly scent the face.", "It is used after the razor work is finished.", "A grooming product applied to freshly shaved skin.", "Begins with A and ends with E."], ["sanitation", "A core safety practice in a professional barber shop.", "It includes cleaning hands, tools, surfaces, and work areas.", "It helps reduce the spread of germs between clients.", "Practices used to maintain clean and hygienic service conditions.", "Begins with S and ends with N."], ["appointment", "A reserved time for a client service.", "It helps organize the barber's daily schedule.", "A customer may book one online, by phone, or in person.", "A scheduled time set aside for a haircut or grooming service.", "Begins with A and ends with T."]];
-  WORDS["Cosmetology"]=[["cosmetology", "A professional field involving beauty services for hair, skin, and nails.", "Training commonly includes sanitation, chemistry, and client care.", "Licensing requirements often apply to people working in this field.", "The study and practice of professional beauty services.", "Begins with C and ends with Y."], ["stylist", "A beauty professional who cuts, shapes, and styles hair.", "This person consults with clients about desired looks.", "Shears, brushes, dryers, and styling products are common tools.", "A professional who provides hair styling and related salon services.", "Begins with S and ends with T."], ["salon", "A business where professional beauty services are provided.", "It may contain styling stations, shampoo bowls, and dryers.", "Clients visit this place for hair, nail, or other beauty services.", "A workplace or business offering professional beauty treatments.", "Begins with S and ends with N."], ["shampoo", "A cleansing product designed for hair and scalp.", "It is worked through wet hair and then rinsed.", "It removes oil, dirt, and product buildup.", "A cleansing preparation used to wash hair.", "Begins with S and ends with O."], ["conditioner", "A hair-care product generally used after shampoo.", "It helps improve softness, manageability, and moisture.", "It is applied to hair and usually rinsed after a short time.", "A product used to soften, smooth, and condition hair.", "Begins with C and ends with R."], ["blowout", "A salon styling service performed with a blow dryer.", "A brush is often used to create smoothness, volume, or shape.", "It can finish the hair without cutting or coloring it.", "A hairstyle created by drying and shaping wet hair with heated airflow.", "Begins with B and ends with T."], ["dryer", "A heated airflow tool used to dry and style hair.", "Attachments may include a nozzle or diffuser.", "A stylist often holds it while using a brush.", "An electrical tool that blows air to dry hair.", "Begins with D and ends with R."], ["diffuser", "An attachment used on a blow dryer.", "It spreads airflow over a wider area.", "It is especially useful for drying curls with less disruption.", "A dryer attachment that disperses air to protect curl pattern and reduce frizz.", "Begins with D and ends with R."], ["flat iron", "A heated styling tool with two smooth plates.", "Hair passes between the plates.", "It is commonly used to straighten or smooth sections of hair.", "A heat tool used to press hair between plates for a straighter finish.", "Begins with F and ends with N."], ["curling iron", "A heated styling tool used to create curls or waves.", "Hair is wrapped around a heated barrel.", "Different barrel sizes produce different curl sizes.", "A heated cylindrical tool used to curl hair.", "Begins with C and ends with N."], ["color", "A salon chemical service that changes hair shade or tone.", "It may darken, lighten, cover gray, or add a new hue.", "A formula is selected and applied according to the desired result.", "Pigment or chemical treatment used to alter the appearance of hair.", "Begins with C and ends with R."], ["developer", "A peroxide-based product mixed with many hair color formulas.", "Its strength is commonly described by volume.", "It helps activate oxidative hair color or lightener.", "An oxidizing agent used to activate certain hair-color products.", "Begins with D and ends with R."], ["lightener", "A chemical product used to remove natural or artificial pigment from hair.", "It is often mixed with developer before application.", "It helps create highlights or lighter overall results.", "A professional product used to lift or bleach hair color.", "Begins with L and ends with R."], ["toner", "A color product used to refine unwanted tones after lightening.", "It can help neutralize brassiness.", "It is often applied after highlights or bleaching.", "A color formula used to adjust the tone of pre-lightened hair.", "Begins with T and ends with R."], ["highlights", "Lighter strands placed throughout selected sections of hair.", "Foils or other techniques may be used to isolate sections.", "They create brightness and dimension without coloring every strand.", "A coloring technique that lightens selected pieces of hair.", "Begins with H and ends with S."], ["balayage", "A highlighting technique known for a hand-painted effect.", "Lightener is painted onto selected areas rather than uniformly from the roots.", "It often creates a soft, blended, sun-kissed appearance.", "A freehand hair-lightening technique that creates graduated highlights.", "Begins with B and ends with E."], ["foils", "Thin sheets used to isolate hair during coloring services.", "They keep selected sections separated while product processes.", "Highlights are commonly created with these shiny sheets.", "Flexible sheets used to separate chemically treated hair sections.", "Begins with F and ends with S."], ["sectioning", "The process of dividing hair into controlled working areas.", "Clips are often used to keep the divisions organized.", "It helps stylists cut, color, and style more precisely.", "Dividing hair into manageable parts for a service.", "Begins with S and ends with G."], ["layers", "Haircut sections cut at different lengths.", "They can add movement, shape, or reduce weight.", "They prevent all the hair from ending at one uniform length.", "Graduated lengths created within a haircut.", "Begins with L and ends with S."], ["bob", "A classic haircut generally ending around the jaw or neck.", "It can be blunt, layered, angled, or textured.", "This short-to-medium style has remained popular for generations.", "A haircut in which the hair is cut to a relatively even length around the head.", "Begins with B and ends with B."], ["pixie", "A very short haircut with cropped sides and back.", "The top may be left slightly longer for styling.", "It is shorter than a traditional bob.", "A short cropped hairstyle often featuring soft layers.", "Begins with P and ends with E."], ["bangs", "Hair cut to fall over the forehead.", "They may be blunt, side-swept, curtain-shaped, or wispy.", "They frame the front of the face.", "A front section of hair cut shorter to cover or border the forehead.", "Begins with B and ends with S."], ["braids", "Hairstyles made by interweaving strands of hair.", "Three or more sections may be crossed in a repeating pattern.", "Cornrows, box styles, and French styles are examples.", "Interlaced strands arranged into woven hair patterns.", "Begins with B and ends with S."], ["twists", "A hairstyle created by wrapping strands or sections around each other.", "Two-strand versions are common on textured hair.", "They can be worn as a finished style or used to create definition.", "A hairstyle formed by winding sections of hair together.", "Begins with T and ends with S."], ["locs", "A hairstyle formed by strands that become intentionally matted and bound together.", "They can be started and maintained using several professional techniques.", "Retwisting is one method used to maintain new growth.", "Rope-like strands of hair formed through controlled locking.", "Begins with L and ends with S."], ["silk press", "A heat-styling service for naturally textured hair.", "It uses careful blow-drying and flat ironing without a chemical relaxer.", "The finished hair is typically smooth, straight, and flowing.", "A nonchemical straightening service using controlled heat and pressing techniques.", "Begins with S and ends with S."], ["relaxer", "A chemical product used to permanently straighten or loosen curl pattern.", "It changes the structure of textured hair.", "Careful timing and scalp protection are important during this service.", "A chemical straightening treatment that alters hair bonds.", "Begins with R and ends with R."], ["perm", "A chemical service used to create lasting curl or wave.", "Hair is wrapped around rods before processing solutions are used.", "It changes the hair structure so the new pattern remains after washing.", "A permanent waving service that chemically reshapes hair.", "Begins with P and ends with M."], ["consultation", "A conversation before a beauty service begins.", "The professional discusses goals, history, condition, and expectations.", "It helps determine whether a requested service is appropriate.", "A pre-service discussion used to plan safe, suitable beauty services.", "Begins with C and ends with N."], ["license", "An official credential required for many professional beauty services.", "Requirements vary by state and specialty.", "Training and examinations may be needed before receiving it.", "Government authorization permitting a qualified person to practice a regulated profession.", "Begins with L and ends with E."]];
-  if(!Array.isArray(THEMES["Beauty & Grooming"])) THEMES["Beauty & Grooming"]=[];
-  ["Manicure & Nails","Barber Shop","Cosmetology"].forEach(function(name){
-    if(!THEMES["Beauty & Grooming"].includes(name)) THEMES["Beauty & Grooming"].push(name);
-  });
-  try{ if(typeof populateThemes==="function") populateThemes(); }catch(e){}
+ function arrange(){
+  if(!window.matchMedia||!matchMedia('(max-width:700px)').matches)return;
+  var get=document.getElementById('swbGetMoreGamesTop');
+  var sound=document.getElementById('sound');
+  var print=document.getElementById('print');
+  if(!get||!sound||!print)return;
+  var row=document.getElementById('swbMobileBottomRowV4');
+  if(!row){
+    row=document.createElement('div');row.id='swbMobileBottomRowV4';
+    var host=get.parentElement;
+    if(host&&host.parentElement)host.parentElement.insertBefore(row,host);
+    else document.body.appendChild(row);
+  }
+  row.appendChild(get);row.appendChild(sound);row.appendChild(print);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(arrange,700)});else setTimeout(arrange,700);
+ setTimeout(arrange,1500);setTimeout(arrange,2500);
 })();
 </script>
 
+
+<!-- V97: compact mobile presentation only; no game logic changes -->
+<style id="swb-v97-compact-mobile-only">
+@media (max-width:820px){
+  body{margin:0!important;padding:0!important;}
+  .wrap,.container,.game-container,#gameContainer,#app{max-width:100%!important;}
+  #swbMobileUtilityRowV96{grid-template-columns:1.15fr .8fr .8fr 1.25fr!important;gap:3px!important;margin:3px 0!important;}
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86,#swbMobileUtilityRowV96 #sound,#swbMobileUtilityRowV96 #print,#swbMobileUtilityRowV96 #swbGetMoreGamesTop{height:40px!important;min-height:40px!important;padding:3px 3px!important;margin:0!important;border-radius:8px!important;font-size:10px!important;line-height:1!important;}
+  #swbMobileBottomActionsV95{margin:2px 0!important;padding:0!important;}
+  #swbUnderGetMoreV82{gap:3px!important;margin:2px 0 3px!important;}
+  #swbUnderGetMoreV82 #howToPlayBtnV80,#swbUnderGetMoreV82 #inviteFriendsV32,#swbUnderGetMoreV82 #swbFeedbackBtnV1{height:38px!important;min-height:38px!important;padding:3px!important;font-size:9.5px!important;border-radius:8px!important;}
+  button,.btn{margin-top:2px;margin-bottom:2px;}
+}
+@media (max-width:430px){
+  #swbMobileUtilityRowV96{grid-template-columns:1.15fr .75fr .75fr 1.25fr!important;gap:2px!important;}
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86,#swbMobileUtilityRowV96 #sound,#swbMobileUtilityRowV96 #print,#swbMobileUtilityRowV96 #swbGetMoreGamesTop{font-size:9px!important;padding:2px!important;}
+}
+</style>
+<script id="swb-v97-compact-mobile-row-js">
+(function(){
+ const mq=window.matchMedia('(max-width:820px)');
+ function place(){
+  if(!mq.matches)return;
+  const row=document.getElementById('swbMobileUtilityRowV96');
+  const more=document.getElementById('swbGetMoreGamesTop');
+  if(row&&more&&more.parentNode!==row)row.appendChild(more);
+ }
+ function start(){place();setTimeout(place,250);setTimeout(place,1200);setTimeout(place,3000)}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+ window.addEventListener('resize',place);
+})();
+</script>
+<!-- V97 END -->
+
+<!-- V99 ONLY: mobile Get More Games smaller and directly next to Print. No gameplay changes. -->
+<style id="swb-v99-getmore-next-print">
+@media (max-width:820px){
+ #swbMobileBottomRowV4,#swbMobileBottomRowV3,#swbMobileUtilityRowV96{
+   display:flex!important; flex-wrap:nowrap!important; gap:6px!important; align-items:stretch!important; width:100%!important;
+ }
+ #sound,#print,#swbGetMoreGamesTop{
+   height:48px!important; min-height:48px!important; margin:0!important; padding:5px 6px!important; border-radius:10px!important; font-size:12px!important; line-height:1.05!important; min-width:0!important;
+ }
+ #sound{flex:1 1 31%!important;width:auto!important;}
+ #print{flex:1 1 25%!important;width:auto!important;}
+ #swbGetMoreGamesTop{flex:1 1 44%!important;width:auto!important;max-width:none!important;white-space:normal!important;}
+}
+</style>
+<script id="swb-v99-getmore-next-print-js">
+(function(){
+ function place(){
+  if(!window.matchMedia('(max-width:820px)').matches)return;
+  var sound=document.getElementById('sound'), print=document.getElementById('print'), more=document.getElementById('swbGetMoreGamesTop');
+  if(!sound||!print||!more)return;
+  var row=document.getElementById('swbMobileBottomRowV99');
+  if(!row){row=document.createElement('div');row.id='swbMobileBottomRowV99'; row.style.cssText='display:flex;gap:6px;width:100%;align-items:stretch;margin:5px 0 6px';}
+  var anchor=print.parentNode; if(!row.parentNode && anchor) anchor.parentNode.insertBefore(row,anchor);
+  row.appendChild(sound); row.appendChild(print); row.appendChild(more);
+ }
+ function run(){place();setTimeout(place,250);setTimeout(place,900);setTimeout(place,2000);setTimeout(place,5000);}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
+})();
+</script>
+
+<!-- V100: desktop left-control compaction only; no gameplay changes -->
+<style id="swb-v100-left-compact">
+@media (min-width:821px){
+  .arcade-layout{grid-template-columns:205px minmax(620px,1fr) 235px!important;gap:14px!important}
+  .arcade-left{gap:5px!important;padding-top:3px!important}
+  .arcade-left .stat{padding:5px 7px!important;min-height:0!important;border-radius:11px!important}
+  .arcade-left .stat b{font-size:.68rem!important;line-height:1!important;margin-bottom:1px!important}
+  .arcade-left .stat span{font-size:.90rem!important;line-height:1.05!important}
+  .arcade-left .theme-selector{padding:4px 6px!important;border-radius:10px!important;min-height:0!important}
+  .arcade-left .theme-selector label{font-size:.66rem!important;line-height:1!important;margin-bottom:1px!important}
+  .arcade-left .theme-selector select{padding:3px 2px!important;font-size:.78rem!important;line-height:1.05!important;min-height:25px!important}
+  .arcade-left .mode-pill{gap:3px!important;padding:3px!important;border-radius:11px!important}
+  .arcade-left .mode-pill button{padding:5px 4px!important;font-size:.72rem!important;line-height:1.05!important;border-radius:7px!important;min-height:27px!important}
+  .arcade-left #swbGetMoreGamesTop{height:32px!important;min-height:32px!important;margin:1px 0!important;padding:4px 7px!important;font-size:.72rem!important;border-radius:8px!important}
+}
+</style>
+<!-- V100 END -->
+
+<!-- V100 tighter desktop left controls only -->
+<style id="swb-v100-left-tighter">
+@media (min-width:821px){
+  .left-panel button,.left-panel .btn,.left-panel select{min-height:0!important;}
+  #soloBtn,#familyGameNightBtn,#dailyPuzzleBtn{height:44px!important;min-height:44px!important;padding:5px 8px!important;margin:3px 0!important;font-size:16px!important;line-height:1!important;}
+  #swbVisibleBalanceV86{min-height:46px!important;height:46px!important;padding:4px 8px!important;margin:5px 0!important;}
+  #swbGetMoreGamesTop,#swbFeedbackBtnV1{height:38px!important;min-height:38px!important;padding:4px 8px!important;margin:4px 0!important;font-size:13px!important;line-height:1!important;border-radius:9px!important;}
+  #swbUnderGetMoreV82{gap:6px!important;margin:4px 0!important;}
+  #howToPlayBtnV80,#inviteFriendsV32{height:46px!important;min-height:46px!important;padding:4px 6px!important;font-size:12px!important;line-height:1.05!important;border-radius:9px!important;}
+}
+</style>
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
 
 
 <!-- v61: Direct invite sharing with public website link -->
+
+<!-- V94: Mobile bottom-action compaction only. Keeps game layout/gameplay intact. -->
+<style id="swb-v94-mobile-bottom-action-compact">
+@media (max-width:820px){
+  /* Keep Get More Games and the three helper actions compact and full-width. */
+  #swbGetMoreGamesTop{
+    grid-column:1 / -1!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    min-height:42px!important;
+    height:42px!important;
+    margin:3px 0 2px!important;
+    padding:6px 10px!important;
+    font-size:.82rem!important;
+    line-height:1!important;
+    border-radius:10px!important;
+  }
+  #swbUnderGetMoreV82{
+    grid-column:1 / -1!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:2px 0 4px!important;
+    padding:0!important;
+    align-items:stretch!important;
+  }
+  #swbUnderGetMoreV82 #howToPlayTopV80{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  #swbUnderGetMoreV82 #howToPlayBtnV80,
+  #swbUnderGetMoreV82 #inviteFriendsV32,
+  #swbUnderGetMoreV82 #swbFeedbackBtnV1{
+    grid-column:auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:44px!important;
+    min-height:44px!important;
+    margin:0!important;
+    padding:5px 4px!important;
+    font-size:10px!important;
+    line-height:1.05!important;
+    border-radius:10px!important;
+    white-space:normal!important;
+  }
+}
+@media (max-width:430px){
+  #swbUnderGetMoreV82{gap:4px!important;}
+  #swbUnderGetMoreV82 #howToPlayBtnV80,
+  #swbUnderGetMoreV82 #inviteFriendsV32,
+  #swbUnderGetMoreV82 #swbFeedbackBtnV1{
+    font-size:9px!important;
+    padding:4px 2px!important;
+  }
+}
+</style>
+<!-- V94 END -->
+
+<!-- V95: Mobile helper/purchase actions moved to the very bottom above copyright. -->
+<style id="swb-v95-mobile-actions-very-bottom">
+@media (max-width:820px){
+  #swbMobileBottomActionsV95{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:5px!important;
+    width:100%!important;
+    margin:5px 0 4px!important;
+    padding:0!important;
+  }
+  #swbMobileBottomActionsV95 #swbGetMoreGamesTop{
+    grid-column:1 / -1!important;
+    width:100%!important;
+    max-width:none!important;
+    height:42px!important;
+    min-height:42px!important;
+    margin:0!important;
+  }
+  #swbMobileBottomActionsV95 #swbUnderGetMoreV82{
+    grid-column:1 / -1!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:5px!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+  }
+}
+</style>
+<script id="swb-v95-mobile-actions-very-bottom-js">
+(function(){
+  const mq=window.matchMedia('(max-width:820px)');
+  let moreHome=null;
+  function ensureHome(){
+    const more=document.getElementById('swbGetMoreGamesTop');
+    if(!more)return null;
+    if(!moreHome){
+      moreHome=document.createComment('swbGetMoreGamesTop desktop home');
+      more.parentNode.insertBefore(moreHome,more);
+    }
+    return more;
+  }
+  function place(){
+    const more=ensureHome();
+    const row=document.getElementById('swbUnderGetMoreV82');
+    const footer=document.querySelector('.footer-v056');
+    if(!more||!row||!footer||!footer.parentNode)return;
+    if(mq.matches){
+      let wrap=document.getElementById('swbMobileBottomActionsV95');
+      if(!wrap){wrap=document.createElement('div');wrap.id='swbMobileBottomActionsV95';}
+      if(wrap.parentNode!==footer.parentNode || wrap.nextElementSibling!==footer){footer.parentNode.insertBefore(wrap,footer);}
+      if(more.parentNode!==wrap)wrap.appendChild(more);
+      if(row.parentNode!==wrap)wrap.appendChild(row);
+    }else{
+      const wrap=document.getElementById('swbMobileBottomActionsV95');
+      if(moreHome&&moreHome.parentNode && more.parentNode!==moreHome.parentNode)moreHome.parentNode.insertBefore(more,moreHome.nextSibling);
+      if(row.previousElementSibling!==more)more.insertAdjacentElement('afterend',row);
+      if(wrap && !wrap.children.length)wrap.remove();
+    }
+  }
+  function start(){place();setTimeout(place,300);setTimeout(place,1800);setTimeout(place,10500);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+  if(mq.addEventListener)mq.addEventListener('change',place);else mq.addListener(place);
+})();
+</script>
+<!-- V95 END -->
+
+
+<!-- V96: Mobile bottom utility row — Today's Games | Sound | Print. -->
+<style id="swb-v96-mobile-utility-row-style">
+@media (max-width:820px){
+  #swbMobileUtilityRowV96{
+    display:grid!important;
+    grid-template-columns:1.15fr 1fr 1fr!important;
+    gap:5px!important;
+    width:100%!important;
+    margin:5px 0 5px!important;
+    padding:0!important;
+    align-items:stretch!important;
+  }
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86,
+  #swbMobileUtilityRowV96 #sound,
+  #swbMobileUtilityRowV96 #print{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    height:52px!important;
+    min-height:52px!important;
+    margin:0!important;
+    padding:5px 4px!important;
+    border-radius:10px!important;
+    box-sizing:border-box!important;
+  }
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    font-size:9px!important;
+    line-height:1.15!important;
+  }
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86 .swb-bal-title{
+    font-size:9px!important;
+    margin-bottom:2px!important;
+  }
+  #swbMobileUtilityRowV96 #sound,
+  #swbMobileUtilityRowV96 #print{
+    font-size:12px!important;
+    line-height:1.05!important;
+    white-space:normal!important;
+  }
+  #swbMobileBottomActionsV95{margin-top:0!important;}
+}
+@media (max-width:430px){
+  #swbMobileUtilityRowV96{gap:4px!important;grid-template-columns:1.2fr .9fr .9fr!important;}
+  #swbMobileUtilityRowV96 #sound,
+  #swbMobileUtilityRowV96 #print{font-size:11px!important;padding:4px 2px!important;}
+}
+</style>
+<script id="swb-v96-mobile-utility-row-js">
+(function(){
+  const mq=window.matchMedia('(max-width:820px)');
+  let soundHome=null, printHome=null;
+  function homes(){
+    const sound=document.getElementById('sound'), print=document.getElementById('print');
+    if(sound && !soundHome){soundHome=document.createComment('sound desktop home');sound.parentNode.insertBefore(soundHome,sound);}
+    if(print && !printHome){printHome=document.createComment('print desktop home');print.parentNode.insertBefore(printHome,print);}
+    return {sound,print};
+  }
+  function place(){
+    const {sound,print}=homes();
+    const balance=document.getElementById('swbVisibleBalanceV86');
+    const actions=document.getElementById('swbMobileBottomActionsV95');
+    const footer=document.querySelector('.footer-v056');
+    if(!sound||!print||!footer||!footer.parentNode)return;
+    if(mq.matches){
+      let row=document.getElementById('swbMobileUtilityRowV96');
+      if(!row){row=document.createElement('div');row.id='swbMobileUtilityRowV96';}
+      const anchor=actions && actions.parentNode===footer.parentNode ? actions : footer;
+      if(row.parentNode!==footer.parentNode || row.nextElementSibling!==anchor)footer.parentNode.insertBefore(row,anchor);
+      if(balance && balance.parentNode!==row)row.appendChild(balance);
+      if(sound.parentNode!==row)row.appendChild(sound);
+      if(print.parentNode!==row)row.appendChild(print);
+    }else{
+      const row=document.getElementById('swbMobileUtilityRowV96');
+      if(soundHome&&soundHome.parentNode&&sound.parentNode!==soundHome.parentNode)soundHome.parentNode.insertBefore(sound,soundHome.nextSibling);
+      if(printHome&&printHome.parentNode&&print.parentNode!==printHome.parentNode)printHome.parentNode.insertBefore(print,printHome.nextSibling);
+      if(row && !row.children.length)row.remove();
+    }
+  }
+  function start(){place();setTimeout(place,100);setTimeout(place,500);setTimeout(place,1600);setInterval(place,1800);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+  if(mq.addEventListener)mq.addEventListener('change',place);else mq.addListener(place);
+})();
+</script>
+<!-- V96 END -->
+
+<!-- V97: phone-only visual compaction; gameplay unchanged -->
+<style id="swb-v97-phone-compact">
+@media (max-width:700px){
+  /* tighten vertical whitespace without changing game behavior */
+  #swbMobileUtilityRowV96{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;margin:4px 0!important}
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86,#swbMobileUtilityRowV96 #sound,#swbMobileUtilityRowV96 #print,#swbMobileUtilityRowV96 #swbGetMoreGamesTop{height:42px!important;min-height:42px!important;margin:0!important;padding:4px 3px!important;font-size:10px!important;border-radius:9px!important}
+  #swbGetMoreGamesTop{height:42px!important;min-height:42px!important;margin:0!important;padding:4px 3px!important;font-size:10px!important;white-space:normal!important}
+  #swbUnderGetMoreV82{gap:4px!important;margin:4px 0!important}
+  #swbUnderGetMoreV82 #howToPlayBtnV80,#swbUnderGetMoreV82 #inviteFriendsV32,#swbUnderGetMoreV82 #swbFeedbackBtnV1{height:42px!important;min-height:42px!important;padding:4px 2px!important;font-size:9px!important;border-radius:9px!important}
+  .footer-v056{margin-top:4px!important;padding-top:5px!important;padding-bottom:5px!important}
+}
+</style>
+<script id="swb-v97-phone-compact-js">
+(function(){
+ const mq=window.matchMedia('(max-width:700px)');
+ function place(){
+  if(!mq.matches)return;
+  const sound=document.getElementById('sound'), print=document.getElementById('print'), more=document.getElementById('swbGetMoreGamesTop'), bal=document.getElementById('swbVisibleBalanceV86');
+  if(!sound||!print||!more)return;
+  let row=document.getElementById('swbMobileUtilityRowV96');
+  if(!row){row=document.createElement('div');row.id='swbMobileUtilityRowV96';}
+  const footer=document.querySelector('.footer-v056');
+  if(footer&&footer.parentNode&&row.parentNode!==footer.parentNode)footer.parentNode.insertBefore(row,footer);
+  if(bal)row.appendChild(bal);
+  row.appendChild(sound);row.appendChild(print);row.appendChild(more);
+ }
+ function start(){place();setTimeout(place,250);setTimeout(place,1000);setTimeout(place,3000)}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<!-- V97 END -->
+
+<!-- V98 FINAL MOBILE COMPACTION: layout only, no gameplay changes -->
+<style id="swb-v98-final-mobile-compact">
+@media (max-width:700px){
+ #swbMobileUtilityRowV96{display:grid!important;grid-template-columns:1.15fr .78fr .72fr 1.35fr!important;gap:3px!important;width:calc(100% - 32px)!important;margin:5px 16px 4px!important;padding:0!important;align-items:stretch!important}
+ #swbMobileUtilityRowV96>#swbVisibleBalanceV86,#swbMobileUtilityRowV96>#sound,#swbMobileUtilityRowV96>#print,#swbMobileUtilityRowV96>#swbGetMoreGamesTop{width:100%!important;max-width:none!important;min-width:0!important;height:38px!important;min-height:38px!important;margin:0!important;padding:2px 3px!important;border-radius:8px!important;box-sizing:border-box!important;font-size:9px!important;line-height:1.05!important;white-space:normal!important}
+ #swbMobileUtilityRowV96>#swbVisibleBalanceV86{font-size:8px!important;padding:2px!important}
+ #swbMobileUtilityRowV96>#swbVisibleBalanceV86 .swb-bal-title{font-size:8px!important;margin:0!important;line-height:1!important}
+ #swbMobileBottomActionsV95{width:100%!important;margin:0!important;padding:0!important}
+ #swbUnderGetMoreV82{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;width:calc(100% - 32px)!important;margin:4px 16px!important;padding:0!important}
+ #swbUnderGetMoreV82 #howToPlayTopV80{width:100%!important;margin:0!important;padding:0!important}
+ #swbUnderGetMoreV82 #howToPlayBtnV80,#swbUnderGetMoreV82 #inviteFriendsV32,#swbUnderGetMoreV82 #swbFeedbackBtnV1{width:100%!important;min-width:0!important;height:40px!important;min-height:40px!important;margin:0!important;padding:2px 3px!important;border-radius:8px!important;font-size:9px!important;line-height:1.05!important;white-space:normal!important}
+ .footer-v056{margin-top:2px!important;padding:5px 16px!important;min-height:0!important}
+}
+</style>
+<script id="swb-v98-final-mobile-compact-js">
+(function(){
+ const mq=window.matchMedia('(max-width:700px)');
+ function lockRow(){
+   if(!mq.matches)return;
+   const sound=document.getElementById('sound'), print=document.getElementById('print'), more=document.getElementById('swbGetMoreGamesTop'), bal=document.getElementById('swbVisibleBalanceV86');
+   if(!sound||!print||!more)return;
+   let row=document.getElementById('swbMobileUtilityRowV96');
+   const footer=document.querySelector('.footer-v056');
+   if(!row){row=document.createElement('div');row.id='swbMobileUtilityRowV96';}
+   if(footer&&footer.parentNode&&row.parentNode!==footer.parentNode)footer.parentNode.insertBefore(row,footer);
+   [bal,sound,print,more].forEach(function(el){if(el&&el.parentNode!==row)row.appendChild(el);});
+ }
+ function start(){lockRow();setTimeout(lockRow,100);setTimeout(lockRow,500);setTimeout(lockRow,1500);setInterval(lockRow,500);}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<!-- V98 END -->
+
+<!-- V100: ONLY mobile Sound | Print | Get More Games alignment fix -->
+<style id="swb-v100-three-button-row">
+@media (max-width:700px){
+  #swbMobileUtilityRowV96{
+    display:grid!important;
+    grid-template-columns:1fr .78fr 1.28fr!important;
+    gap:6px!important;
+    width:calc(100% - 32px)!important;
+    margin:8px 16px 6px!important;
+    padding:0!important;
+    align-items:stretch!important;
+  }
+  #swbMobileUtilityRowV96 #swbVisibleBalanceV86{display:none!important;}
+  #swbMobileUtilityRowV96 #sound,
+  #swbMobileUtilityRowV96 #print,
+  #swbMobileUtilityRowV96 #swbGetMoreGamesTop{
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    width:100%!important;min-width:0!important;max-width:none!important;
+    height:48px!important;min-height:48px!important;
+    margin:0!important;padding:5px 4px!important;
+    border-radius:10px!important;box-sizing:border-box!important;
+    font-size:11px!important;line-height:1.05!important;white-space:normal!important;
+  }
+  #swbMobileUtilityRowV96 #swbGetMoreGamesTop{font-size:10px!important;}
+}
+</style>
+<script id="swb-v100-three-button-row-js">
+(function(){
+  function fix(){
+    if(!window.matchMedia('(max-width:700px)').matches)return;
+    var sound=document.getElementById('sound');
+    var print=document.getElementById('print');
+    var more=document.getElementById('swbGetMoreGamesTop');
+    if(!sound||!print||!more)return;
+    var row=document.getElementById('swbMobileUtilityRowV96');
+    var footer=document.querySelector('.footer-v056');
+    if(!row){row=document.createElement('div');row.id='swbMobileUtilityRowV96';}
+    if(footer&&footer.parentNode&&row.parentNode!==footer.parentNode)footer.parentNode.insertBefore(row,footer);
+    if(sound.parentNode!==row)row.appendChild(sound);
+    if(print.parentNode!==row)row.appendChild(print);
+    if(more.parentNode!==row)row.appendChild(more);
+  }
+  function start(){
+    fix(); setTimeout(fix,0); setTimeout(fix,100); setTimeout(fix,500); setTimeout(fix,1500);
+    var obs=new MutationObserver(fix); obs.observe(document.body,{childList:true,subtree:true});
+    setInterval(fix,100);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<!-- V100 END -->
