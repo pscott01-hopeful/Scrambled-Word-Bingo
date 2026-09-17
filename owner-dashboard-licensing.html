@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Scrambled Word Bingo™ Owner Dashboard</title>
+<style>
+  :root { font-family: Arial, Helvetica, sans-serif; color:#202124; }
+  body { margin:0; background:#f6f7fb; }
+  header { background:#fff; border-bottom:1px solid #ddd; padding:22px; }
+  header h1 { margin:0 0 5px; font-size:26px; }
+  header p { margin:0; color:#666; }
+  main { max-width:1150px; margin:24px auto; padding:0 18px 40px; }
+  .login,.card { background:#fff; border:1px solid #ddd; border-radius:14px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+  .login { max-width:520px; margin:50px auto; }
+  label { display:block; font-weight:700; margin-bottom:8px; }
+  input { box-sizing:border-box; width:100%; padding:12px; border:1px solid #bbb; border-radius:8px; font-size:16px; }
+  button { border:0; border-radius:8px; padding:11px 16px; font-weight:700; cursor:pointer; }
+  .primary { background:#5b2ca0; color:#fff; }
+  .secondary { background:#e9e9ef; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .error { color:#b00020; margin-top:12px; font-weight:700; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:18px 0; }
+  .metric { background:#fff; border:1px solid #ddd; border-radius:12px; padding:16px; }
+  .metric .label { color:#666; font-size:13px; }
+  .metric .value { font-size:28px; font-weight:800; margin-top:6px; }
+  h2 { margin:28px 0 12px; }
+  table { width:100%; border-collapse:collapse; background:#fff; }
+  th,td { text-align:left; vertical-align:top; padding:10px; border-bottom:1px solid #e5e5e5; }
+  th { background:#f1f1f5; }
+  .table-wrap { overflow:auto; border:1px solid #ddd; border-radius:12px; }
+  .small { color:#666; font-size:13px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scrambled Word Bingo™ Owner Dashboard</h1>
+  <p>Licensing-focused performance, player engagement, commercial interest, and feedback.</p>
+</header>
+<main>
+  <section id="login" class="login">
+    <h2 style="margin-top:0">Owner Access</h2>
+    <p>Enter the private admin key you created in Cloudflare. It is used only for this request and is not saved by this page.</p>
+    <label for="key">Admin key</label>
+    <input id="key" type="password" autocomplete="off">
+    <div class="actions"><button class="primary" id="open">Open Dashboard</button></div>
+    <div id="loginError" class="error"></div>
+  </section>
+
+  <section id="dashboard" class="hidden">
+    <div class="actions">
+      <button class="primary" id="refresh">Refresh Dashboard</button>
+      <button class="secondary" id="lock">Lock Dashboard</button>
+    </div>
+    <p id="generated" class="small"></p>
+
+    <h2>Licensing Performance</h2>
+    <h3>Players</h3><div id="players" class="grid"></div>
+    <h3>Engagement</h3><div id="engagement" class="grid"></div>
+    <h3>Player Response</h3><div id="playerResponse" class="grid"></div>
+    <h3>Commercial Interest</h3><div id="commercial" class="grid"></div>
+
+    <h2>Player Feedback</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Rating</th><th>Play Again?</th><th>Enjoyed</th><th>Confusing</th><th>Problem</th><th>Improve</th><th>Mode</th></tr></thead>
+        <tbody id="feedbackRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "https://scrambled-word-bingo-payments.pamela-5fe.workers.dev";
+let adminKey = "";
+
+const $ = id => document.getElementById(id);
+const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function labelize(k) {
+  return String(k).replace(/([A-Z])/g," $1").replace(/_/g," ").replace(/^./,s=>s.toUpperCase());
+}
+function renderObject(id, obj) {
+  const box = $(id); box.innerHTML = "";
+  if (!obj || typeof obj !== "object") return;
+  Object.entries(obj).forEach(([k,v]) => {
+    if (v && typeof v === "object") {
+      Object.entries(v).forEach(([sk,sv]) => addMetric(box, labelize(k)+" — "+labelize(sk), sv));
+    } else addMetric(box, labelize(k), v);
+  });
+}
+function addMetric(box,label,value) {
+  const d=document.createElement("div"); d.className="metric";
+  d.innerHTML=`<div class="label">${esc(label)}</div><div class="value">${esc(value)}</div>`;
+  box.appendChild(d);
+}
+function renderFeedback(items) {
+  const body=$("feedbackRows"); body.innerHTML="";
+  (items||[]).forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${esc(x.createdAt ? new Date(x.createdAt).toLocaleString() : "")}</td><td>${esc(x.rating||"")}</td><td>${esc(x.playAgain||"")}</td><td>${esc(x.enjoy||"")}</td><td>${esc(x.confusing||"")}</td><td>${esc(x.problem||x.bug||"")}</td><td>${esc(x.improve||"")}</td><td>${esc(x.mode||"")}</td>`;
+    body.appendChild(tr);
+  });
+  if (!(items||[]).length) body.innerHTML='<tr><td colspan="8">No feedback has been submitted yet.</td></tr>';
+}
+async function load() {
+  $("loginError").textContent="";
+  try {
+    const r=await fetch(API+"/owner-dashboard",{headers:{"X-SWB-Admin-Key":adminKey}});
+    if(!r.ok) throw new Error(r.status===401 ? "The admin key was not accepted." : "Dashboard request failed.");
+    const data=await r.json();
+    $("login").classList.add("hidden"); $("dashboard").classList.remove("hidden");
+    $("generated").textContent="Last refreshed: "+new Date(data.generatedAt||Date.now()).toLocaleString();
+    const a=data.allTime||{}, f=data.feedbackSummary||{};
+    const n=v=>Number(v||0);
+    const pct=(x,y)=>y>0?Math.round((x/y)*100)+"%":"0%";
+    const pairs=v=>{
+      if(!v)return[];
+      if(Array.isArray(v)) return v.map(x=>Array.isArray(x)?{name:x[0],count:n(x[1])}:
+        (x&&typeof x==="object"?{name:x.name??x.mode??x.category??x.label??x.key??"",count:n(x.count??x.value??x.total??x.games)}:{name:String(x),count:0}));
+      return typeof v==="object"?Object.entries(v).map(([name,count])=>({name,count:n(count)})):[];
+    };
+    const modes=pairs(a.topModes??a.modes??{}).sort((x,y)=>y.count-x.count);
+    const unique=n(a.uniqueVisitors), games=n(a.gamesStarted), completed=n(a.coverAllCompletions);
+    const returning=n(a.retentionDay1Returns), base=n(a.retentionDay0);
+    const returnRate=n(a.day1RetentionPercent)>0?n(a.day1RetentionPercent)+"%":pct(returning,base);
+
+    const players=$("players"); players.innerHTML="";
+    addMetric(players,"Unique Players",unique);
+    addMetric(players,"Returning Players",returning);
+    addMetric(players,"Return Rate",returnRate);
+
+    const engagement=$("engagement"); engagement.innerHTML="";
+    addMetric(engagement,"Games Played",games);
+    addMetric(engagement,"Games Completed",completed);
+    addMetric(engagement,"Average Games per Player",unique?(games/unique).toFixed(1):"0.0");
+    addMetric(engagement,"Most Popular Mode",modes.length?labelize(modes[0].name):"Not enough data");
+
+    const response=$("playerResponse"); response.innerHTML="";
+    addMetric(response,"Average Rating",n(f.averageRating).toFixed(1)+" / 5");
+    addMetric(response,"Would Play Again",n(f.playAgainYesPercent)+"%");
+    addMetric(response,"Feedback Responses",n(f.total));
+
+    const commercial=$("commercial"); commercial.innerHTML="";
+    addMetric(commercial,"Purchases",n(a.purchasesCompleted));
+    addMetric(commercial,"Purchase Revenue","$"+(n(a.purchaseRevenueCents)/100).toFixed(2));
+
+    renderFeedback(data.feedback);
+  } catch(e) {
+    $("loginError").textContent=e.message+" Check the key and try again.";
+  }
+}
+$("open").onclick=()=>{ adminKey=$("key").value.trim(); if(!adminKey){$("loginError").textContent="Enter your admin key.";return;} load(); };
+$("key").addEventListener("keydown",e=>{if(e.key==="Enter") $("open").click();});
+$("refresh").onclick=load;
+$("lock").onclick=()=>{ adminKey=""; $("key").value=""; $("dashboard").classList.add("hidden"); $("login").classList.remove("hidden"); };
+</script>
+</body>
+</html>
