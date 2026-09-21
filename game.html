@@ -9751,7 +9751,7 @@ window.SWB_HINT_AUDIT={
     if(note())note().textContent='Creating your secure Square checkout...';
     b.disabled=true;
     try{
-      const r=await fetch(API_BASE+'/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId:checkoutPlayerId,package:packageName})});
+      const r=await fetch(API_BASE+'/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId:checkoutPlayerId,packageId:packageName})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok||!data.success||!data.checkoutUrl)throw new Error(data.error||'Checkout could not be created.');
       try{if(window.swbTrack)window.swbTrack('checkout_started',{package:packageName,mode:(typeof playMode!=='undefined'?String(playMode):'')});}catch(_){ }
