@@ -12863,6 +12863,125 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
+
+<!-- iPHONE v16: authoritative keyboard layout fix -->
+<style id="swb-ios-v16">
+@media(max-width:640px){
+  #answer{
+    font-size:16px!important;
+    -webkit-text-size-adjust:100%!important;
+  }
+
+  /* When Safari keyboard is open, pin the answer controls to the visible
+     viewport instead of allowing the board/page to collapse and jump. */
+  body.swbIOSV16Open .answer-row{
+    position:fixed!important;
+    left:8px!important;
+    right:8px!important;
+    top:calc(var(--swb-vv-top, 0px) + 8px)!important;
+    z-index:2147483000!important;
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:6px!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:5px!important;
+    background:#fff!important;
+    border-radius:10px!important;
+    box-shadow:0 4px 18px rgba(0,0,0,.28)!important;
+  }
+  body.swbIOSV16Open .answer-row .selected-answer-wrap{
+    display:none!important;
+  }
+  body.swbIOSV16Open .answer-row .answer-wrap{
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  body.swbIOSV16Open #answer{
+    width:100%!important;
+    min-width:0!important;
+    height:42px!important;
+    min-height:42px!important;
+    font-size:16px!important;
+    margin:0!important;
+  }
+  body.swbIOSV16Open #submit{
+    width:auto!important;
+    min-width:78px!important;
+    height:42px!important;
+    min-height:42px!important;
+    margin:0!important;
+    font-size:15px!important;
+  }
+
+  /* Crucial: do not resize/reflow the game board when the visual viewport
+     shrinks for the software keyboard. */
+  body.swbIOSV16Open #board,
+  body.swbIOSV16Open #familyBoardOverlayWrap{
+    width:calc(100% - 8px)!important;
+    max-width:none!important;
+    flex:none!important;
+    transform:none!important;
+  }
+}
+</style>
+<script id="swb-ios-v16-js">
+(function(){
+  var isiOS=/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+            (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(!isiOS)return;
+
+  var vv=window.visualViewport;
+  var answer=document.getElementById('answer');
+  if(!answer)return;
+
+  answer.setAttribute('autocomplete','off');
+  answer.setAttribute('autocorrect','off');
+  answer.setAttribute('autocapitalize','none');
+  answer.setAttribute('spellcheck','false');
+  answer.style.setProperty('font-size','16px','important');
+
+  var fullHeight=Math.max(window.innerHeight, vv ? vv.height : 0);
+
+  function update(){
+    if(!vv)return;
+    if(document.activeElement!==answer){
+      document.body.classList.remove('swbIOSV16Open');
+      return;
+    }
+    var keyboard = fullHeight - vv.height > 120;
+    document.body.classList.toggle('swbIOSV16Open',keyboard);
+    document.documentElement.style.setProperty('--swb-vv-top',vv.offsetTop+'px');
+    /* Counter Safari's automatic focus scroll after keyboard animation. */
+    if(keyboard){
+      requestAnimationFrame(function(){
+        window.scrollTo({top:Math.max(0,window.scrollY),behavior:'auto'});
+      });
+    }
+  }
+
+  answer.addEventListener('focus',function(){
+    fullHeight=Math.max(fullHeight,window.innerHeight,vv?vv.height:0);
+    setTimeout(update,50);
+    setTimeout(update,180);
+    setTimeout(update,400);
+  },true);
+
+  answer.addEventListener('blur',function(){
+    setTimeout(function(){
+      document.body.classList.remove('swbIOSV16Open');
+    },80);
+  },true);
+
+  if(vv){
+    vv.addEventListener('resize',update);
+    vv.addEventListener('scroll',update);
+  }
+})();
+</script>
+
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
