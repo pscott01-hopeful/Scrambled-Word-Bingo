@@ -12734,6 +12734,135 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
+
+<!-- iPHONE SAFARI KEYBOARD FIX v15: no visual redesign -->
+<style id="swb-ios-keyboard-v15-style">
+@media(max-width:640px){
+  html.swbIOSKeyboardV15,
+  body.swbIOSKeyboardV15{
+    -webkit-text-size-adjust:100%;
+  }
+  body.swbIOSKeyboardV15 input[type="text"],
+  body.swbIOSKeyboardV15 input:not([type]),
+  body.swbIOSKeyboardV15 textarea{
+    font-size:16px!important; /* prevents iOS Safari input zoom */
+    -webkit-user-select:text;
+    user-select:text;
+  }
+  body.swbIOSKeyboardV15.swbKeyboardOpenV15{
+    padding-bottom:var(--swb-kb-v15,0px)!important;
+  }
+}
+</style>
+<script id="swb-ios-keyboard-v15-js">
+(function(){
+  var ua=navigator.userAgent||"";
+  var isIOS=/iPad|iPhone|iPod/.test(ua) ||
+            (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  if(!isIOS)return;
+
+  document.documentElement.classList.add("swbIOSKeyboardV15");
+  document.body && document.body.classList.add("swbIOSKeyboardV15");
+
+  function isAnswerField(el){
+    if(!el || !el.matches)return false;
+    if(!el.matches('input[type="text"],input:not([type]),textarea'))return false;
+    /* Exclude obvious non-game fields if any exist. */
+    var id=(el.id||"").toLowerCase(), cls=(el.className||"").toString().toLowerCase();
+    if(/email|name|search|nickname|feedback/.test(id+" "+cls))return false;
+    return true;
+  }
+
+  function prep(el){
+    if(!isAnswerField(el))return;
+    el.setAttribute("autocomplete","off");
+    el.setAttribute("autocorrect","off");
+    el.setAttribute("autocapitalize","none");
+    el.setAttribute("spellcheck","false");
+    el.setAttribute("enterkeyhint","done");
+    el.setAttribute("inputmode","text");
+    el.setAttribute("data-form-type","other");
+    el.setAttribute("aria-autocomplete","none");
+    /* Keep iOS from treating game answers like credential/contact fields. */
+    if(!el.getAttribute("name") || /answer|word|input/i.test(el.getAttribute("name")||"")){
+      el.setAttribute("name","swb_game_answer_"+Math.random().toString(36).slice(2,9));
+    }
+  }
+
+  function prepAll(){
+    document.querySelectorAll('input[type="text"],input:not([type]),textarea').forEach(prep);
+  }
+
+  function keyboardState(){
+    if(!window.visualViewport)return;
+    var vv=window.visualViewport;
+    var hidden=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
+    var open=hidden>120;
+    document.body.classList.toggle("swbKeyboardOpenV15",open);
+    document.body.style.setProperty("--swb-kb-v15",open?(hidden+18)+"px":"0px");
+
+    var active=document.activeElement;
+    if(open && isAnswerField(active)){
+      /* Put the active game answer safely above the keyboard. */
+      requestAnimationFrame(function(){
+        var r=active.getBoundingClientRect();
+        var safeTop=vv.offsetTop+12;
+        var safeBottom=vv.offsetTop+vv.height-22;
+        if(r.bottom>safeBottom || r.top<safeTop){
+          active.scrollIntoView({behavior:"smooth",block:"center",inline:"nearest"});
+        }
+      });
+    }
+  }
+
+  function focusFix(e){
+    var el=e.target;
+    if(!isAnswerField(el))return;
+    prep(el);
+    setTimeout(keyboardState,80);
+    setTimeout(function(){
+      if(document.activeElement===el){
+        el.scrollIntoView({behavior:"smooth",block:"center",inline:"nearest"});
+      }
+    },320);
+  }
+
+  function blurFix(){
+    setTimeout(function(){
+      keyboardState();
+      if(document.activeElement===document.body ||
+         !isAnswerField(document.activeElement)){
+        document.body.classList.remove("swbKeyboardOpenV15");
+        document.body.style.setProperty("--swb-kb-v15","0px");
+      }
+    },250);
+  }
+
+  function start(){
+    document.body.classList.add("swbIOSKeyboardV15");
+    prepAll();
+    document.addEventListener("focusin",focusFix,true);
+    document.addEventListener("focusout",blurFix,true);
+
+    if(window.visualViewport){
+      visualViewport.addEventListener("resize",keyboardState);
+      visualViewport.addEventListener("scroll",keyboardState);
+    }
+
+    /* New boards can recreate the answer input, so prepare new fields too. */
+    new MutationObserver(function(muts){
+      for(var i=0;i<muts.length;i++){
+        if(muts[i].addedNodes.length){prepAll();break;}
+      }
+    }).observe(document.body,{childList:true,subtree:true});
+  }
+
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",start,{once:true});
+  }else start();
+})();
+</script>
+
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
