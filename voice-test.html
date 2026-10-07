@@ -10937,7 +10937,7 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 
 
 
-<!-- STAGE_3_VOICE_TILE_SELECTION_V4_START -->
+<!-- STAGE_4_VOICE_ANDROID_QUIET_V4_START -->
 <style id="swb-stage2-voice-style">
 #swbVoiceAnswerV102{display:none;min-width:0}
 #swbVoiceAnswerV102 .voice-answer-label{display:block;font-size:.82rem;font-weight:900;color:#ffe600;text-align:center;margin:0 0 4px;text-shadow:0 2px 2px #000}
@@ -10951,7 +10951,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
 @media(max-width:820px){html[data-swb-play-style="voice"] .answer-row{grid-template-columns:1fr!important}#swbVoiceStatusV102{width:100%;min-height:48px}}
 @media(max-width:430px){#swbVoiceStatusV102{font-size:.9rem;padding:9px 10px}}
 </style>
-<script id="swb-stage3-voice-script-v4">
+<script id="swb-stage4-voice-script-android-quiet-v4">
 (function(){
   const answerRow=document.querySelector('.answer-row');
   const answer=document.getElementById('answer');
@@ -10977,6 +10977,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   let restartTimer=null;
   let stoppedForDialog=false;
   let userStoppedVoice=false;
+  let idleStopped=false;
 
   function isVoice(){return window.SWB_PLAY_STYLE==='voice'||document.documentElement.dataset.swbPlayStyle==='voice';}
   function dialogOpen(){
@@ -11147,7 +11148,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
     if(!SpeechRecognitionCtor)return null;
     const r=new SpeechRecognitionCtor();
     r.lang='en-US';r.interimResults=false;r.continuous=true;r.maxAlternatives=3;
-    r.onstart=function(){recognitionActive=true;if(awaitingAnswer&&tileReady())setStatus('Listening… Say the word you think is correct.',true);else setStatus('Listening… Say a tile, such as B1, or tap a tile.',true);};
+    r.onstart=function(){idleStopped=false;recognitionActive=true;if(awaitingAnswer&&tileReady())setStatus('Listening… Say the word you think is correct.',true);else setStatus('Listening… Say a tile, such as B1, or tap a tile.',true);};
     r.onresult=function(event){
       if(!isVoice()||Date.now()<ignoreResultsUntil)return;
       let alternatives=[];
@@ -11204,22 +11205,24 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       if(stoppedForPause||paused){setStatus('Game paused. Voice is off until play resumes.');return;}
       if(stoppedForDialog||dialogOpen()){setStatus('Voice is paused while this window is open.');return;}
       if(userStoppedVoice)return;
-      if(hostedVoiceOrigin()){
-        if(awaitingAnswer&&tileReady())setStatus('Still waiting for your answer…',true);
-        else setStatus('Voice ready. Say a tile such as B1, or tap a tile.',true);
-        scheduleRestart(320);
-        return;
+
+      // Android/Chrome may end Web Speech recognition after a period of silence.
+      // Do NOT automatically restart here. Repeated restart cycles can produce
+      // the Android/Chrome microphone chirp. Keep Voice Play enabled, but idle,
+      // until the player taps the Voice status box or manually selects a tile.
+      idleStopped=true;
+      if(awaitingAnswer&&tileReady()){
+        setStatus('Voice Play On — tap here when you are ready to say the answer.');
+      }else{
+        setStatus('Voice Play On — tap here to resume, then say a tile.');
       }
-      // file:// testing cannot reliably preserve microphone permission across
-      // browser speech-recognition restarts. The live HTTPS game will re-arm.
-      if(awaitingAnswer&&tileReady())setStatus('Voice paused after silence in this downloaded test. The live game will resume automatically.');
-      else setStatus('Voice paused after silence in this downloaded test. The live game will resume automatically.');
     };
     return r;
   }
   function startRecognition(){
     if(!SpeechRecognitionCtor||!canListen())return;
     if(recognitionActive)return;
+    idleStopped=false;
     if(!recognition)recognition=buildRecognition();
     try{recognition.start();}catch(e){if(String(e&&e.name||'')!=='InvalidStateError')setStatus('Voice recognition could not start. Select the tile again.');}
   }
@@ -11248,7 +11251,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   document.addEventListener('swb:playstylechange',function(e){
     const style=e&&e.detail?e.detail.style:'';
     if(style==='voice'){
-      setVoiceInputState(true);awaitingAnswer=false;stoppedForPause=false;stoppedForDialog=false;userStoppedVoice=false;
+      setVoiceInputState(true);awaitingAnswer=false;stoppedForPause=false;stoppedForDialog=false;userStoppedVoice=false;idleStopped=false;
       setStatus('Voice ready. Say a tile such as B1, or tap a tile.');
       /* Stage 3: begin listening once Voice Play is chosen so the first tile can be selected by voice. */
       setTimeout(startRecognition,120);
@@ -11272,8 +11275,8 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
         setStatus('Hint shown. Voice is still listening for your answer.',true);
       }else if(tileReady()){
         awaitingAnswer=true;
-        setStatus('Hint shown. Voice will continue waiting for your answer.',true);
-        scheduleRestart(220);
+        idleStopped=true;
+        setStatus('Hint shown. Voice Play is on — tap the Voice box when you are ready to answer.');
       }
     },true);
   }
@@ -11283,7 +11286,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       if(!isVoice())return;
       setTimeout(function(){
         if(paused){stopRecognition(true);setStatus('Game paused. Voice is off until play resumes.');}
-        else{stoppedForPause=false;setStatus('Voice ready. Say a tile or tap one.');scheduleRestart(120);}
+        else{stoppedForPause=false;idleStopped=true;setStatus('Voice Play On — tap the Voice box to resume listening.');}
       },0);
     },true);
   }
@@ -11301,13 +11304,30 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
         stoppedForDialog=false;
         if(!paused&&!stoppedForPause){
           if(tileReady())awaitingAnswer=true;
-          setStatus(tileReady()?'Voice resumed. Say the word you think is correct.':'Voice resumed. Say a tile such as B1.',true);
-          scheduleRestart(180);
+          idleStopped=true;
+          setStatus(tileReady()?'Voice Play On — tap the Voice box when you are ready to answer.':'Voice Play On — tap the Voice box to resume listening.');
         }
       }
     },80);
   });
   dialogObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+
+  // Quiet Android idle recovery: after Chrome ends recognition because of
+  // silence, the player can tap this status box once to resume listening.
+  // This avoids the repeated automatic stop/start chirp loop.
+  status.style.cursor='pointer';
+  status.setAttribute('role','button');
+  status.setAttribute('tabindex','0');
+  status.setAttribute('aria-label','Voice Play status. Tap to resume listening when idle.');
+  function resumeVoiceFromStatus(){
+    if(!isVoice()||paused||stoppedForPause||stoppedForDialog||dialogOpen())return;
+    if(recognitionActive)return;
+    if(tileReady())awaitingAnswer=true;
+    setStatus(tileReady()?'Listening… Say the word you think is correct.':'Listening… Say a tile, such as B1.',true);
+    startRecognition();
+  }
+  status.addEventListener('click',resumeVoiceFromStatus);
+  status.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();resumeVoiceFromStatus();}});
 
   answer.addEventListener('beforeinput',function(e){if(isVoice())e.preventDefault();},true);
   answer.addEventListener('keydown',function(e){if(isVoice()){e.preventDefault();e.stopImmediatePropagation();}},true);
@@ -11317,7 +11337,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   window.addEventListener('pagehide',function(){stopRecognition(false);});
 })();
 </script>
-<!-- STAGE_2_VOICE_ANSWERS_V6_END -->
+<!-- STAGE_4_VOICE_ANDROID_QUIET_V4_END -->
 
 
 <!-- STAGE_4_VOICE_HINTS_V2_START -->
@@ -11401,6 +11421,70 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
 })();
 </script>
 <!-- STAGE_4_VOICE_HINTS_V3_END -->
+
+<!-- SWB_ANSWER_METHOD_TOGGLE_V1_START -->
+<style id="swb-answer-method-toggle-style">
+#swbAnswerMethodToggleV1{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin:6px 0 8px;grid-column:1/-1}
+#swbAnswerMethodToggleV1 .swb-method-btn{min-height:38px;padding:7px 12px;border-radius:999px;border:2px solid #9fb4d2;background:#eef4fb;color:#173b72;font-weight:900;cursor:pointer}
+#swbAnswerMethodToggleV1 .swb-method-btn[aria-pressed="true"]{background:#173b72;color:#fff;border-color:#173b72}
+@media(max-width:480px){#swbAnswerMethodToggleV1{gap:5px;margin:4px 0 6px}#swbAnswerMethodToggleV1 .swb-method-btn{min-height:36px;padding:6px 10px;font-size:.78rem}}
+</style>
+<script id="swb-answer-method-toggle-script-v1">
+(function(){
+  const row=document.querySelector('.answer-row');
+  const answer=document.getElementById('answer');
+  const submit=document.getElementById('submit');
+  const originalVoice=document.getElementById('swbVoicePlayV90');
+  const originalType=document.getElementById('swbTypePlayV90');
+  if(!row||!answer||!submit||!originalVoice||!originalType)return;
+
+  const wrap=document.createElement('div');
+  wrap.id='swbAnswerMethodToggleV1';
+  wrap.setAttribute('aria-label','Answer method');
+  wrap.innerHTML='<button type="button" class="swb-method-btn" id="swbToggleVoiceV1" aria-pressed="false">🎤 Voice Answer</button><button type="button" class="swb-method-btn" id="swbToggleTypeV1" aria-pressed="false">⌨️ Type Answer</button>';
+  row.insertBefore(wrap,row.firstChild);
+  const voice=document.getElementById('swbToggleVoiceV1');
+  const type=document.getElementById('swbToggleTypeV1');
+
+  function currentStyle(){return window.SWB_PLAY_STYLE||document.documentElement.dataset.swbPlayStyle||'';}
+  function activeTile(){
+    try{return typeof selected!=='undefined'&&selected>=0&&board&&board[selected]&&!board[selected].solved;}catch(e){return false;}
+  }
+  function sync(){
+    const v=currentStyle()==='voice';
+    voice.setAttribute('aria-pressed',v?'true':'false');
+    type.setAttribute('aria-pressed',v?'false':'true');
+    if(!v&&activeTile()){
+      answer.disabled=false;
+      answer.readOnly=false;
+      answer.removeAttribute('inputmode');
+      submit.disabled=false;
+      try{answer.focus({preventScroll:true});}catch(e){}
+    }
+  }
+  function chooseVoice(){
+    if(currentStyle()==='voice'){sync();return;}
+    originalVoice.click();
+    setTimeout(function(){
+      sync();
+      /* If a tile was already active when the player changed methods,
+         re-enter that same tile through the existing voice selection path so
+         Voice Answer listens for the current word without resetting progress. */
+      try{if(activeTile()&&typeof selectTile==='function')selectTile(selected);}catch(e){}
+    },30);
+  }
+  function chooseType(){
+    if(currentStyle()==='type'){sync();return;}
+    originalType.click();
+    setTimeout(sync,30);
+  }
+  voice.addEventListener('click',chooseVoice);
+  type.addEventListener('click',chooseType);
+  document.addEventListener('swb:playstylechange',function(){setTimeout(sync,0);});
+  setTimeout(sync,450);
+})();
+</script>
+<!-- SWB_ANSWER_METHOD_TOGGLE_V1_END -->
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
