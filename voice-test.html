@@ -11501,3 +11501,74 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
 
 <!-- V96: Mobile bottom utility row — Today's Games | Sound | Print. -->
 <!-- V96 END -->
+
+<!-- SWB_V6_HINT_TOGGLE_FIX_START -->
+<script id="swb-v6-hint-toggle-fix">
+(function(){
+  const hintBtn=document.getElementById('hint');
+  if(!hintBtn)return;
+
+  function activeItem(){
+    try{
+      if(typeof selected==='undefined'||selected<0||!board||!board[selected])return null;
+      return board[selected];
+    }catch(e){return null;}
+  }
+
+  function syncHintButton(){
+    const item=activeItem();
+    let isPaused=false;
+    try{isPaused=!!paused;}catch(e){}
+    hintBtn.disabled=!item||isPaused||Number(item.hintIndex||0)>=5;
+  }
+
+  /* Re-sync after tile selection, regardless of whether the tile was selected
+     manually or by voice. */
+  try{
+    const priorSelect=window.selectTile;
+    if(typeof priorSelect==='function'&&!priorSelect.__swbV6HintWrapped){
+      const wrapped=function(i){
+        const out=priorSelect.apply(this,arguments);
+        setTimeout(syncHintButton,0);
+        setTimeout(syncHintButton,80);
+        return out;
+      };
+      wrapped.__swbV6HintWrapped=true;
+      window.selectTile=wrapped;
+    }
+  }catch(e){}
+
+  /* Switching Voice Answer <-> Type Answer must not disable hints for the
+     currently active tile. */
+  document.addEventListener('swb:playstylechange',function(){
+    setTimeout(syncHintButton,0);
+    setTimeout(syncHintButton,80);
+  });
+
+  /* Keep the manual Show Hint button attached to the current Stage 4 hint
+     function and restore the correct enabled state before use. */
+  hintBtn.addEventListener('pointerdown',function(){
+    syncHintButton();
+  },true);
+
+  hintBtn.addEventListener('click',function(){
+    setTimeout(function(){
+      if(window.SWBStage4Hints&&typeof window.SWBStage4Hints.render==='function'){
+        try{window.SWBStage4Hints.render();}catch(e){}
+      }
+      syncHintButton();
+    },0);
+  });
+
+  /* Board rebuilds/new games can replace state without replacing the button. */
+  const boardNode=document.getElementById('board');
+  if(boardNode){
+    new MutationObserver(function(){setTimeout(syncHintButton,0);})
+      .observe(boardNode,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  }
+
+  window.SWBHintV6={sync:syncHintButton};
+  syncHintButton();
+})();
+</script>
+<!-- SWB_V6_HINT_TOGGLE_FIX_END -->
