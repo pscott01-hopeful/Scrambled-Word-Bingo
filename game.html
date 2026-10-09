@@ -7003,7 +7003,22 @@ window.SWB_HINT_AUDIT={
     init();
   }
 
-  window.SWBBoardViewV12={getMode:mode,setMode:setMode,apply:applyMode,syncMenu:syncThemeAndBoard};
+  window.SWBBoardViewV12={
+    getMode:mode,
+    setMode:setMode,
+    apply:applyMode,
+    syncMenu:syncThemeAndBoard,
+    coverTile:function(i){
+      try{
+        revealed.delete(Number(i));
+        if(window.__familyRevealedTiles instanceof Set){
+          window.__familyRevealedTiles.delete(Number(i));
+        }
+        applyMode();
+        setTimeout(applyMode,40);
+      }catch(e){}
+    }
+  };
 })();
 </script>
 
@@ -9852,34 +9867,56 @@ window.SWB_HINT_AUDIT={
 </script>
 <!-- HOW_TO_PLAY_V80_START -->
 <style id="how-to-play-v80-style">
-#swbHowToPlayV80{position:fixed;inset:0;background:rgba(3,16,54,.82);z-index:2147483000;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
-#swbHowToPlayV80.show{display:flex}
-#swbHowToPlayCardV80{width:min(520px,94vw);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#fff,#f4f8ff);color:#10295b;border:4px solid #ffd22e;border-radius:22px;padding:18px 18px 16px;box-shadow:0 16px 50px rgba(0,0,0,.45);box-sizing:border-box}
+#swbHowToPlayV80,#swbPlayChoiceV90{position:fixed;inset:0;background:rgba(3,16,54,.82);z-index:2147483000;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+#swbHowToPlayV80.show,#swbPlayChoiceV90.show{display:flex}
+#swbHowToPlayCardV80{width:min(620px,94vw);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#fff,#f4f8ff);color:#10295b;border:4px solid #ffd22e;border-radius:22px;padding:18px 18px 10px;box-shadow:0 16px 50px rgba(0,0,0,.45);box-sizing:border-box;scrollbar-gutter:stable}
 #swbHowToPlayCardV80 h2{margin:0 0 4px;text-align:center;color:#132d74;font-size:1.45rem}
 #swbHowToPlayCardV80 .welcome{text-align:center;font-weight:900;color:#a21772;margin-bottom:12px}
-#swbHowToPlayCardV80 ol{margin:8px 0 14px;padding-left:25px;font-weight:700;line-height:1.35}
-#swbHowToPlayCardV80 li{margin:7px 0}
+#swbHowToPlayCardV80 h3{margin:15px 0 7px;color:#132d74;font-size:1.05rem}
+#swbHowToPlayCardV80 ol{margin:7px 0 10px;padding-left:24px;font-weight:700;line-height:1.27}
+#swbHowToPlayCardV80 li{margin:5px 0}
+#swbHowToPlayCardV80 .voiceHelpV90{background:#edf6ff;border:2px solid #7eb6ee;border-radius:12px;padding:9px 11px;margin:8px 0;line-height:1.3;font-weight:700}
+#swbHowToPlayCardV80 .voiceHelpV90 ul{margin:7px 0 0;padding-left:22px}
+#swbHowToPlayCardV80 .voiceHelpV90 li{margin:3px 0}
 #swbHowToPlayCardV80 .coveredTip{background:#fff5c5;border:2px solid #f0bd18;border-radius:12px;padding:9px 10px;margin:10px 0;font-weight:800}
-#swbHowToPlayStartV80{display:block;width:100%;border:0;border-radius:13px;padding:12px;background:#18a94c;color:white;font-size:1.05rem;font-weight:900;cursor:pointer}
-@media(max-width:640px){#howToPlayBtnV80{font-size:.92rem!important;padding:8px 16px!important}#swbHowToPlayCardV80{padding:15px 14px}#swbHowToPlayCardV80 h2{font-size:1.25rem}#swbHowToPlayCardV80 ol{font-size:.92rem}}
+#swbHowToPlayStartV80{display:block;width:100%;border:0;border-radius:13px;padding:12px;background:#18a94c;color:white;font-size:1.05rem;font-weight:900;cursor:pointer;min-height:48px;position:sticky;bottom:0;z-index:3;margin-top:12px;box-shadow:0 -7px 16px rgba(255,255,255,.95),0 4px 10px rgba(0,0,0,.18)}
+#swbPlayChoiceCardV90{width:min(500px,94vw);background:linear-gradient(180deg,#fff,#f4f8ff);color:#10295b;border:4px solid #ffd22e;border-radius:22px;padding:22px 18px;box-shadow:0 16px 50px rgba(0,0,0,.45);box-sizing:border-box;text-align:center}
+#swbPlayChoiceCardV90 h2{margin:0 0 8px;color:#132d74;font-size:1.45rem}
+#swbPlayChoiceCardV90 p{margin:0 0 16px;font-weight:800;line-height:1.35}
+#swbPlayChoiceButtonsV90{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#swbPlayChoiceButtonsV90 button{border:0;border-radius:14px;padding:16px 12px;min-height:66px;font-size:1.05rem;font-weight:900;cursor:pointer;box-shadow:0 5px 12px rgba(0,0,0,.2)}
+#swbVoicePlayV90{background:linear-gradient(#2f69bc,#164a9a);color:#fff}
+#swbTypePlayV90{background:linear-gradient(#ffd84a,#f0ad13);color:#172238}
+#swbPlayChoiceNoteV90{margin-top:13px!important;font-size:.86rem;font-weight:700!important;color:#53627a}
+#swbPlayStyleBadgeV90{display:none;text-align:center;margin:3px auto 7px;width:max-content;max-width:92vw;padding:5px 10px;border-radius:999px;background:#071b43;color:#fff;border:2px solid #ffd22e;font-size:.78rem;font-weight:900}
+#swbPlayStyleBadgeV90.show{display:block}
+@media(max-width:640px){
+ #howToPlayBtnV80{font-size:.92rem!important;padding:8px 16px!important}
+ #swbHowToPlayCardV80{padding:13px 12px 8px;max-height:88vh}
+ #swbHowToPlayCardV80 h2,#swbPlayChoiceCardV90 h2{font-size:1.25rem}
+ #swbHowToPlayCardV80 ol{font-size:.86rem;line-height:1.22}
+ #swbHowToPlayCardV80 .voiceHelpV90{font-size:.84rem}
+ #swbPlayChoiceCardV90{padding:18px 14px}
+ #swbPlayChoiceButtonsV90{grid-template-columns:1fr;gap:10px}
+ #swbPlayChoiceButtonsV90 button{min-height:58px;padding:13px 10px}
+}
 </style>
 <div id="swbHowToPlayV80" role="dialog" aria-modal="true" aria-labelledby="swbHowToPlayTitleV80">
  <div id="swbHowToPlayCardV80">
   <h2 id="swbHowToPlayTitleV80">WELCOME TO SCRAMBLED WORD BINGO!</h2>
   <div class="welcome">Unscramble • Think • Play • Bingo!</div>
   <ol>
+   <li><b>Choose how you want to play:</b><br><b>Voice Play</b> — Speak answers; use voice commands or tap game controls manually. You can speak answers and select tiles by voice or touch.<br><b>Type Answer Play</b> — Use the game controls and type answers. <b>Switch between Voice Answer and Type Answer at any time without restarting your game.</b></li>
    <li><b>Choose a Game Mode:</b><br>
     <b>Solo</b> — Play independently at your own pace.<br>
     <b>Family Game Night</b> — Play together with family or friends and take turns.<br>
     <b>Daily Puzzle</b> — Play the featured puzzle of the day.</li>
    <li>Choose a <b>Theme</b> and <b>Board</b> category.</li>
    <li><b>Choose your Board View:</b><br>
-    <b>Covered Board</b> — Tiles begin covered. Tap a numbered tile to reveal a scrambled word. This adds more surprise and challenge.<br>
-    <b>Open Board</b> — All scrambled words are visible from the beginning. Choose any word you want to solve and work around the board in any order.</li>
-   <li>If you choose <b>Covered Board</b>, tap a covered numbered square, such as <b>B1, I1, or N1</b>, to reveal a scrambled word. On <b>Open Board</b>, tap any visible scrambled word to play it.</li>
-   <li>Unscramble the word and type the complete answer.</li>
-   <li>Tap <b>Submit</b>. A correct answer marks that square.</li>
-   <li>Need help? Tap <b>Show Hint</b> for progressive clues.</li>
+    <b>Covered Board</b> — Tiles begin covered. Select a numbered tile to reveal a scrambled word.<br>
+    <b>Open Board</b> — All scrambled words are visible from the beginning.</li>
+   <li>Select a tile, unscramble the word, and speak or type your answer. Use the <b>Voice Answer / Type Answer</b> toggle whenever you want to change how you answer. Your board, score, hints, and game progress stay in place.</li>
+   <li>Need help? Select a tile and tap <b>Show Hint</b> in the hint area on the right. In Voice Answer mode, you can also say <b>“Give me a hint,” “Hint,”</b> or <b>“Next hint.”</b> Hints are numbered and remain available when you return to that tile.</li>
    <li><b>Complete winning patterns and earn points:</b><br>
     <b>Four Corners — 150 points:</b> solve all four corner squares.<br>
     <b>Bingo — 175 points:</b> complete a row, column, or diagonal.<br>
@@ -9887,23 +9924,100 @@ window.SWB_HINT_AUDIT={
     <b>Cover All — 200 points:</b> solve all 24 playable squares.<br>
     <b>Perfect Round — 250 bonus points:</b> complete the game with no hints and no wrong answers.</li>
   </ol>
+  <div class="voiceHelpV90">
+   <b>VOICE ANSWER AND TYPE ANSWER</b>
+   <ul>
+    <li><b>Choose your game setup:</b> Use the on-screen controls to select your game mode, theme, category, and board.</li>
+    <li><b>Select a tile:</b> While Voice Answer is active, say a tile location such as <b>“B1”</b>, or tap a tile manually.</li>
+    <li><b>Voice Answer:</b> When the scrambled word appears, say the correct word aloud.</li>
+    <li><b>Type Answer:</b> Enter the correct word using the keyboard.</li>
+    <li><b>Toggle anytime:</b> Switch between <b>Voice Answer</b> and <b>Type Answer</b> during the same game without restarting or losing your board, score, hints, timer, or progress.</li>
+    <li><b>Get a hint:</b> While Voice Answer is active, say <b>“Give me a hint,” “Hint,”</b> or <b>“Next hint.”</b> You can also tap <b>Show Hint</b>.</li>
+    <li><b>Manual controls:</b> You can always tap on-screen game controls, tiles, and hints.</li>
+    <li><b>Resume listening:</b> If voice recognition pauses, tap the voice status/control to resume.</li>
+   </ul>
+  </div>
   <div class="coveredTip">⭐ Choose <b>Covered Board</b> for more surprise or <b>Open Board</b> to see all scrambled words from the start.</div>
-  <button id="swbHowToPlayStartV80" type="button">START PLAYING!</button>
+  <button id="swbHowToPlayStartV80" type="button">CONTINUE</button>
  </div>
 </div>
-<script id="how-to-play-v80-script">
+<div id="swbPlayChoiceV90" role="dialog" aria-modal="true" aria-labelledby="swbPlayChoiceTitleV90">
+ <div id="swbPlayChoiceCardV90">
+  <h2 id="swbPlayChoiceTitleV90">HOW DO YOU WANT TO PLAY?</h2>
+  <p>Choose how to begin. You can switch between speaking and typing answers during the game without losing progress.</p>
+  <div id="swbPlayChoiceButtonsV90">
+   <button id="swbVoicePlayV90" type="button">🎤 VOICE PLAY</button>
+   <button id="swbTypePlayV90" type="button">⌨️ TYPE ANSWER PLAY</button>
+  </div>
+ </div>
+</div>
+<div id="swbPlayStyleBadgeV90" aria-live="polite"></div>
+<script id="how-to-play-v90-script">
 (function(){
+ const HOW_SEEN_KEY='swb_how_to_play_seen_v90';
  const modal=document.getElementById('swbHowToPlayV80');
+ const choice=document.getElementById('swbPlayChoiceV90');
  const openBtn=document.getElementById('howToPlayBtnV80');
  const startBtn=document.getElementById('swbHowToPlayStartV80');
- function openHow(){modal.classList.add('show');}
- function closeHow(){modal.classList.remove('show');}
- if(openBtn)openBtn.addEventListener('click',openHow);
- if(startBtn)startBtn.addEventListener('click',closeHow);
- modal.addEventListener('click',function(e){if(e.target===modal)closeHow()});
- document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.classList.contains('show'))closeHow()});
- // Show How to Play every time the game page is opened or refreshed.
- setTimeout(openHow,700);
+ const voiceBtn=document.getElementById('swbVoicePlayV90');
+ const typeBtn=document.getElementById('swbTypePlayV90');
+ const badge=document.getElementById('swbPlayStyleBadgeV90');
+ let howOpenedManually=false;
+
+ function showChoice(){
+   if(modal) modal.classList.remove('show');
+   if(choice) choice.classList.add('show');
+ }
+ function openHow(manual){
+   howOpenedManually=!!manual;
+   if(choice) choice.classList.remove('show');
+   if(modal) modal.classList.add('show');
+ }
+ function closeHow(){
+   if(modal) modal.classList.remove('show');
+   try{localStorage.setItem(HOW_SEEN_KEY,'1');}catch(_){ }
+   if(!howOpenedManually) showChoice();
+   howOpenedManually=false;
+ }
+ function setPlayStyle(style){
+   window.SWB_PLAY_STYLE=style;
+   document.documentElement.dataset.swbPlayStyle=style;
+   if(choice) choice.classList.remove('show');
+   if(badge){
+     badge.textContent=style==='voice'?'🎤 Voice Play Selected':'⌨️ Type Answer Play Selected';
+     badge.classList.add('show');
+   }
+   document.dispatchEvent(new CustomEvent('swb:playstylechange',{detail:{style:style}}));
+
+   // Stage 1 flow: after choosing the answer method, return to the top
+   // so the player chooses game mode/theme/topic before working the board.
+   try{
+     document.documentElement.scrollTop=0;
+     document.body.scrollTop=0;
+     window.scrollTo(0,0);
+     setTimeout(function(){
+       document.documentElement.scrollTop=0;
+       document.body.scrollTop=0;
+       window.scrollTo(0,0);
+     },50);
+   }catch(_){ }
+ }
+
+ if(openBtn) openBtn.addEventListener('click',function(){openHow(true)});
+ if(startBtn) startBtn.addEventListener('click',closeHow);
+ if(voiceBtn) voiceBtn.addEventListener('click',function(){setPlayStyle('voice')});
+ if(typeBtn) typeBtn.addEventListener('click',function(){setPlayStyle('type')});
+ if(modal) modal.addEventListener('click',function(e){if(e.target===modal) closeHow()});
+ document.addEventListener('keydown',function(e){
+   if(e.key==='Escape' && modal && modal.classList.contains('show')) closeHow();
+ });
+
+ let seen=false;
+ try{seen=localStorage.getItem(HOW_SEEN_KEY)==='1';}catch(_){ }
+ setTimeout(function(){
+   if(seen) showChoice();
+   else openHow(false);
+ },350);
 })();
 </script>
 <!-- HOW_TO_PLAY_V80_END -->
@@ -10824,6 +10938,556 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 })();
 </script>
 
+
+
+<!-- STAGE_4_VOICE_ANDROID_QUIET_V4_START -->
+<style id="swb-stage2-voice-style">
+#swbVoiceAnswerV102{display:none;min-width:0}
+#swbVoiceAnswerV102 .voice-answer-label{display:block;font-size:.82rem;font-weight:900;color:#ffe600;text-align:center;margin:0 0 4px;text-shadow:0 2px 2px #000}
+#swbVoiceStatusV102{min-height:62px;border:2px solid #78dcff;border-radius:12px;background:linear-gradient(180deg,#071b43,#06152e);color:#fff;padding:9px 12px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:900;line-height:1.22;box-shadow:0 4px 10px rgba(0,0,0,.28)}
+#swbVoiceStatusV102.listening{border-color:#ff8fcc;background:linear-gradient(180deg,#7b1258,#4b0a39)}
+#swbVoiceStatusV102 .mic{font-size:1.25em;margin-right:7px}
+html[data-swb-play-style="voice"] .answer-wrap{display:none!important}
+html[data-swb-play-style="voice"] .answer-row #submit{display:none!important}
+html[data-swb-play-style="voice"] #swbVoiceAnswerV102{display:block!important}
+html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px,280px) minmax(280px,1fr)!important}
+@media(max-width:820px){html[data-swb-play-style="voice"] .answer-row{grid-template-columns:1fr!important}#swbVoiceStatusV102{width:100%;min-height:48px}}
+@media(max-width:430px){#swbVoiceStatusV102{font-size:.9rem;padding:9px 10px}}
+</style>
+<script id="swb-stage4-voice-script-android-quiet-v4">
+(function(){
+  const answerRow=document.querySelector('.answer-row');
+  const answer=document.getElementById('answer');
+  const submitButton=document.getElementById('submit');
+  const selectedBox=document.getElementById('selectedDisplay');
+  const pauseButton=document.getElementById('pause');
+  const hintButton=document.getElementById('hint');
+  if(!answerRow||!answer||!submitButton||!selectedBox)return;
+
+  const voiceWrap=document.createElement('div');
+  voiceWrap.id='swbVoiceAnswerV102';
+  voiceWrap.innerHTML='<span class="voice-answer-label">VOICE ANSWER</span><div id="swbVoiceStatusV102" role="status" aria-live="polite"><span class="mic">🎤</span><span class="voice-copy">Voice ready. Select a tile.</span></div>';
+  answerRow.insertBefore(voiceWrap,submitButton);
+
+  const status=document.getElementById('swbVoiceStatusV102');
+  const statusCopy=status.querySelector('.voice-copy');
+  const SpeechRecognitionCtor=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+  let recognition=null;
+  let recognitionActive=false;
+  let awaitingAnswer=false;
+  let stoppedForPause=false;
+  let ignoreResultsUntil=0;
+  let restartTimer=null;
+  let stoppedForDialog=false;
+  let userStoppedVoice=false;
+  let idleStopped=false;
+
+  function isVoice(){return window.SWB_PLAY_STYLE==='voice'||document.documentElement.dataset.swbPlayStyle==='voice';}
+  function dialogOpen(){
+    try{
+      const dialogs=[...document.querySelectorAll('[role=\"dialog\"]')];
+      return dialogs.some(function(el){
+        if(el===document.getElementById('swbPlayChoiceV90'))return false;
+        const cs=getComputedStyle(el);
+        return cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)!==0&&el.getClientRects().length>0;
+      });
+    }catch(e){return false;}
+  }
+  function clearRestart(){if(restartTimer){clearTimeout(restartTimer);restartTimer=null;}}
+  function canListen(){return isVoice()&&!paused&&!stoppedForPause&&!stoppedForDialog&&!userStoppedVoice&&!dialogOpen();}
+  function scheduleRestart(delay){
+    clearRestart();
+    if(!hostedVoiceOrigin()||!canListen())return;
+    restartTimer=setTimeout(function(){restartTimer=null;if(canListen()&&!recognitionActive)startRecognition();},Math.max(180,delay||350));
+  }
+  function setStatus(text,isListening){statusCopy.textContent=text;status.classList.toggle('listening',!!isListening);}
+  function tileReady(){try{return isVoice()&&typeof selected!=='undefined'&&selected>=0&&board&&board[selected]&&!board[selected].solved&&!paused;}catch(e){return false;}}
+  function tileLabelFromIndex(i){
+    const letters=['B','I','N','G','O'];
+    return letters[i%5]+(Math.floor(i/5)+1);
+  }
+  function parseTileCommand(raw){
+    const original=String(raw||'').toLowerCase().trim();
+    if(!original)return null;
+    const text=original.replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+    if(!text)return null;
+
+    // First catch compact forms and common speech-to-text renderings.
+    // Chrome may hear O1 as "01" and one as "won" in short commands.
+    const compactText=text.replace(/\s+/g,'');
+    let m=compactText.match(/^([bingo])([1-5])$/);
+    if(m){
+      const letter=m[1].toUpperCase(), row=Number(m[2]);
+      const col={B:0,I:1,N:2,G:3,O:4}[letter];
+      return {label:letter+row,index:(row-1)*5+col};
+    }
+    m=compactText.match(/^0([1-5])$/);
+    if(m){
+      const row=Number(m[1]);
+      return {label:'O'+row,index:(row-1)*5+4};
+    }
+
+    const tokens=text.split(' ');
+    const letterMap={
+      b:'B',be:'B',bee:'B',
+      i:'I',eye:'I',aye:'I',
+      n:'N',en:'N',and:'N',
+      g:'G',gee:'G',
+      o:'O',oh:'O',zero:'O'
+    };
+    const numberMap={
+      '1':1,one:1,won:1,
+      '2':2,two:2,to:2,too:2,
+      '3':3,three:3,
+      '4':4,four:4,for:4,
+      '5':5,five:5
+    };
+    const filler=new Set(['open','select','choose','tile','square','number','please','the']);
+    let letter=null,row=null;
+    for(const token of tokens){
+      if(filler.has(token))continue;
+      if(!letter && letterMap[token]){letter=letterMap[token];continue;}
+      if(!row && numberMap[token]){row=numberMap[token];continue;}
+      const compact=token.match(/^([bingo])([1-5])$/);
+      if(compact){letter=compact[1].toUpperCase();row=Number(compact[2]);continue;}
+      const zeroCompact=token.match(/^0([1-5])$/);
+      if(zeroCompact){letter='O';row=Number(zeroCompact[1]);}
+    }
+    if(!letter||!row||row<1||row>5)return null;
+    const col={B:0,I:1,N:2,G:3,O:4}[letter];
+    return {label:letter+row,index:(row-1)*5+col};
+  }
+  function handleTileCommand(transcript){
+    const cmd=parseTileCommand(transcript);
+    if(!cmd)return false;
+    try{
+      if(!board||!board[cmd.index])return false;
+      if(board[cmd.index].free){setStatus(cmd.label+' is the FREE space. Say another tile.',true);return true;}
+      if(board[cmd.index].solved){setStatus(cmd.label+' is already solved. Say another tile.',true);return true;}
+      setStatus('Opening '+cmd.label+'…',true);
+      // Follow the exact same reveal path as a manual tap on a Covered Board.
+      // Calling selectTile() directly selects the tile but leaves the numbered
+      // cover in place, which hides the scrambled word.
+      const tileEls=document.querySelectorAll('#board .tile');
+      const tileEl=tileEls[cmd.index];
+      const cover=tileEl ? tileEl.querySelector('.swb-cover-v12,.family-tile-cover') : null;
+      if(cover){
+        cover.click();
+      }else{
+        selectTile(cmd.index);
+      }
+      return true;
+    }catch(e){return false;}
+  }
+  function hostedVoiceOrigin(){return location.protocol==='https:'||location.protocol==='http:';}
+  function setVoiceInputState(on){
+    if(on){answer.value='';answer.disabled=true;answer.readOnly=true;answer.setAttribute('inputmode','none');submitButton.disabled=true;try{answer.blur();}catch(e){}}
+    else{answer.readOnly=false;answer.removeAttribute('inputmode');}
+  }
+  function coverWrongTile(i){
+    try{
+      if(window.SWBBoardViewV12&&typeof window.SWBBoardViewV12.getMode==='function'&&window.SWBBoardViewV12.getMode()==='covered'){
+        const forceCover=function(){
+          try{
+            const tileEls=document.querySelectorAll('#board .tile');
+            if(tileEls[i])tileEls[i].classList.remove('selected');
+            if(typeof window.SWBBoardViewV12.coverTile==='function')window.SWBBoardViewV12.coverTile(i);
+            else if(typeof window.SWBBoardViewV12.apply==='function')window.SWBBoardViewV12.apply();
+          }catch(e){}
+        };
+        forceCover();
+        setTimeout(forceCover,30);
+        setTimeout(forceCover,90);
+        setTimeout(forceCover,180);
+      }
+    }catch(e){}
+  }
+  function clearSelectedAfterWrong(i){
+    try{
+      selected=-1;
+      answer.value='';answer.disabled=true;submitButton.disabled=true;
+      const hintBtn=document.getElementById('hint');if(hintBtn)hintBtn.disabled=true;
+      selectedBox.textContent='';
+      if(typeof hintText!=='undefined'&&hintText)hintText.textContent='Select a tile to continue.';
+      if(typeof hintMeta!=='undefined'&&hintMeta)hintMeta.textContent='Hint 0 of 5';
+      render();
+      coverWrongTile(i);
+    }catch(e){}
+  }
+  function cleanSpokenAnswerPhrase(value){
+    let t=String(value||'').trim();
+    // Let players answer naturally without making filler words part of the answer.
+    t=t.replace(/^(?:the\s+answer\s+is|answer\s+is|the\s+word\s+is|word\s+is|i\s+think\s+(?:it\s+is|it['’]s)|it\s+is|it['’]s)\s+/i,'');
+    return t.trim();
+  }
+  function processSpokenAnswer(transcriptOrAlternatives){
+    if(!awaitingAnswer||!tileReady())return;
+    const list=Array.isArray(transcriptOrAlternatives)?transcriptOrAlternatives:[transcriptOrAlternatives];
+    const spokenList=list.map(cleanSpokenAnswerPhrase).filter(Boolean);
+    if(!spokenList.length){setStatus("I didn't catch that. Please say it again.",true);return;}
+    const tileIndex=selected;
+    const item=board[tileIndex];
+    const target=normalizeAnswer(item.word);
+    let spoken=spokenList[0];
+    let correct=false;
+    for(const candidate of spokenList){
+      if(normalizeAnswer(candidate)===target){spoken=candidate;correct=true;break;}
+    }
+    awaitingAnswer=false;
+    ignoreResultsUntil=Date.now()+600;
+    setStatus('Heard: “'+spoken+'”');
+    answer.disabled=false;answer.readOnly=false;answer.value=spoken;submitButton.disabled=false;
+    submit();
+    setVoiceInputState(true);
+    if(correct){
+      setStatus('Correct! Say your next tile or tap one.',true);
+    }else{
+      if(playMode!=='family')clearSelectedAfterWrong(tileIndex);
+      else coverWrongTile(tileIndex);
+      setStatus('Not correct. The tile is covered again. Say that tile or another tile.',true);
+    }
+  }
+  function buildRecognition(){
+    if(!SpeechRecognitionCtor)return null;
+    const r=new SpeechRecognitionCtor();
+    r.lang='en-US';r.interimResults=false;r.continuous=true;r.maxAlternatives=3;
+    r.onstart=function(){idleStopped=false;recognitionActive=true;if(awaitingAnswer&&tileReady())setStatus('Listening… Say the word you think is correct.',true);else setStatus('Listening… Say a tile, such as B1, or tap a tile.',true);};
+    r.onresult=function(event){
+      if(!isVoice()||Date.now()<ignoreResultsUntil)return;
+      let alternatives=[];
+      try{
+        const idx=typeof event.resultIndex==='number'?event.resultIndex:event.results.length-1;
+        const result=event.results[idx];
+        if(result&&result.isFinal!==false){
+          for(let a=0;a<result.length;a++){
+            const t=result[a]&&result[a].transcript?String(result[a].transcript).trim():'';
+            if(t)alternatives.push(t);
+          }
+        }
+      }catch(e){}
+      if(!alternatives.length)return;
+      // Stage 4: hint commands work while a tile is active and must never be
+      // mistaken for a spoken answer.
+      if(tileReady()){
+        const hintCommand=alternatives.some(function(t){
+          const q=String(t||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+          return q==='hint'||q==='next hint'||q==='another hint'||q==='give me a hint'||q==='give me another hint'||q==='i need a hint'||q==='show hint'||q==='show me a hint';
+        });
+        if(hintCommand){
+          ignoreResultsUntil=Date.now()+500;
+          try{ showHint(); }catch(e){}
+          awaitingAnswer=tileReady();
+          setStatus('Hint shown. Say the word when you are ready.',true);
+          return;
+        }
+      }
+      if(awaitingAnswer&&tileReady()){
+        processSpokenAnswer(alternatives);
+      }else if(!awaitingAnswer){
+        let handled=false;
+        for(const text of alternatives){
+          if(handleTileCommand(text)){handled=true;break;}
+        }
+        if(!handled)setStatus('I heard “'+alternatives[0]+'”. Say a tile such as B1, I3, N4, G2, or O5.',true);
+      }
+    };
+    r.onnomatch=function(){if(awaitingAnswer&&tileReady())setStatus("I didn't catch that. Please say the answer again.",true);else setStatus("I didn't catch the tile. Say B1, I3, N4, G2, or O5.",true);};
+    r.onerror=function(event){
+      const code=event&&event.error?String(event.error):'';
+      if(code==='not-allowed'||code==='service-not-allowed')setStatus('Microphone access is blocked. Allow microphone access to use Voice Play.');
+      else if(code==='audio-capture')setStatus('No microphone was detected on this device.');
+      else if(code==='no-speech'){
+        if(tileReady())setStatus('Still waiting for your answer…',true);
+        else setStatus('Still listening for a tile command…',true);
+      }
+      else if(code!=='aborted'&&awaitingAnswer)setStatus("I couldn't understand that. Select the tile again and say the answer.");
+    };
+    r.onend=function(){
+      recognitionActive=false;
+      if(!isVoice())return;
+      if(stoppedForPause||paused){setStatus('Game paused. Voice is off until play resumes.');return;}
+      if(stoppedForDialog||dialogOpen()){setStatus('Voice is paused while this window is open.');return;}
+      if(userStoppedVoice)return;
+
+      // Android/Chrome may end Web Speech recognition after a period of silence.
+      // Do NOT automatically restart here. Repeated restart cycles can produce
+      // the Android/Chrome microphone chirp. Keep Voice Play enabled, but idle,
+      // until the player taps the Voice status box or manually selects a tile.
+      idleStopped=true;
+      if(awaitingAnswer&&tileReady()){
+        setStatus('Voice Play On — tap here when you are ready to say the answer.');
+      }else{
+        setStatus('Voice Play On — tap here to resume, then say a tile.');
+      }
+    };
+    return r;
+  }
+  function startRecognition(){
+    if(!SpeechRecognitionCtor||!canListen())return;
+    if(recognitionActive)return;
+    idleStopped=false;
+    if(!recognition)recognition=buildRecognition();
+    try{recognition.start();}catch(e){if(String(e&&e.name||'')!=='InvalidStateError')setStatus('Voice recognition could not start. Select the tile again.');}
+  }
+  function stopRecognition(forPause){
+    clearRestart();
+    stoppedForPause=!!forPause;
+    awaitingAnswer=false;
+    if(recognitionActive&&recognition){try{recognition.abort();}catch(e){}}
+    recognitionActive=false;
+  }
+
+  try{
+    const originalSelectTile=selectTile;
+    selectTile=function(i){
+      if(!isVoice()){originalSelectTile(i);return;}
+      answer.readOnly=true;answer.setAttribute('inputmode','none');
+      originalSelectTile(i);
+      setVoiceInputState(true);
+      if(paused){setStatus('Game paused. Voice is off until play resumes.');return;}
+      awaitingAnswer=tileReady();ignoreResultsUntil=Date.now()+200;
+      try{setMessage('Say the correct word.');}catch(e){}
+      if(awaitingAnswer){stoppedForPause=false;setStatus('Listening… Say the word you think is correct.',true);startRecognition();}
+    };
+  }catch(e){}
+
+  document.addEventListener('swb:playstylechange',function(e){
+    const style=e&&e.detail?e.detail.style:'';
+    if(style==='voice'){
+      setVoiceInputState(true);awaitingAnswer=false;stoppedForPause=false;stoppedForDialog=false;userStoppedVoice=false;idleStopped=false;
+      setStatus('Voice ready. Say a tile such as B1, or tap a tile.');
+      /* Stage 3: begin listening once Voice Play is chosen so the first tile can be selected by voice. */
+      setTimeout(startRecognition,120);
+    }else{
+      userStoppedVoice=true;stopRecognition(false);recognition=null;setVoiceInputState(false);setStatus('Voice ready. Select a tile.');
+    }
+  });
+
+  if(hintButton){
+    /* A hint request must never start or restart speech recognition.
+       Keep the active tile selected and leave the existing recognition session alone. */
+    hintButton.addEventListener('pointerdown',function(){
+      if(!isVoice())return;
+      ignoreResultsUntil=Date.now()+350;
+    },true);
+    hintButton.addEventListener('click',function(){
+      if(!isVoice())return;
+      ignoreResultsUntil=Date.now()+350;
+      if(tileReady()&&recognitionActive){
+        awaitingAnswer=true;
+        setStatus('Hint shown. Voice is still listening for your answer.',true);
+      }else if(tileReady()){
+        awaitingAnswer=true;
+        idleStopped=true;
+        setStatus('Hint shown. Voice Play is on — tap the Voice box when you are ready to answer.');
+      }
+    },true);
+  }
+
+  if(pauseButton){
+    pauseButton.addEventListener('click',function(){
+      if(!isVoice())return;
+      setTimeout(function(){
+        if(paused){stopRecognition(true);setStatus('Game paused. Voice is off until play resumes.');}
+        else{stoppedForPause=false;idleStopped=true;setStatus('Voice Play On — tap the Voice box to resume listening.');}
+      },0);
+    },true);
+  }
+
+  // Pause voice while any game dialog is visible, then resume when it closes.
+  let dialogCheckTimer=null;
+  const dialogObserver=new MutationObserver(function(){
+    clearTimeout(dialogCheckTimer);
+    dialogCheckTimer=setTimeout(function(){
+      if(!isVoice())return;
+      const open=dialogOpen();
+      if(open){
+        if(!stoppedForDialog){stoppedForDialog=true;clearRestart();if(recognitionActive&&recognition){try{recognition.abort();}catch(e){}}recognitionActive=false;setStatus('Voice is paused while this window is open.');}
+      }else if(stoppedForDialog){
+        stoppedForDialog=false;
+        if(!paused&&!stoppedForPause){
+          if(tileReady())awaitingAnswer=true;
+          idleStopped=true;
+          setStatus(tileReady()?'Voice Play On — tap the Voice box when you are ready to answer.':'Voice Play On — tap the Voice box to resume listening.');
+        }
+      }
+    },80);
+  });
+  dialogObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+
+  // Quiet Android idle recovery: after Chrome ends recognition because of
+  // silence, the player can tap this status box once to resume listening.
+  // This avoids the repeated automatic stop/start chirp loop.
+  status.style.cursor='pointer';
+  status.setAttribute('role','button');
+  status.setAttribute('tabindex','0');
+  status.setAttribute('aria-label','Voice Play status. Tap to resume listening when idle.');
+  function resumeVoiceFromStatus(){
+    if(!isVoice()||paused||stoppedForPause||stoppedForDialog||dialogOpen())return;
+    if(recognitionActive)return;
+    if(tileReady())awaitingAnswer=true;
+    setStatus(tileReady()?'Listening… Say the word you think is correct.':'Listening… Say a tile, such as B1.',true);
+    startRecognition();
+  }
+  status.addEventListener('click',resumeVoiceFromStatus);
+  status.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();resumeVoiceFromStatus();}});
+
+  answer.addEventListener('beforeinput',function(e){if(isVoice())e.preventDefault();},true);
+  answer.addEventListener('keydown',function(e){if(isVoice()){e.preventDefault();e.stopImmediatePropagation();}},true);
+  answer.addEventListener('focus',function(){if(isVoice())answer.blur();},true);
+
+  if(isVoice()){setVoiceInputState(true);setStatus('Voice ready. Say a tile such as B1, or tap a tile.');setTimeout(startRecognition,120);}
+  window.addEventListener('pagehide',function(){stopRecognition(false);});
+})();
+</script>
+<!-- STAGE_4_VOICE_ANDROID_QUIET_V4_END -->
+
+
+<!-- STAGE_4_VOICE_HINTS_V2_START -->
+<style id="swb-stage4-hints-style">
+/* Stage 4 v2: keep the complete hint experience together in the game's
+   original right-side Get A Hint panel. Do not change the board grid/layout. */
+#hintText.swb-hint-history{min-height:54px;max-height:280px;overflow:auto}
+#hintText .swb-hint-line{display:block;margin:0 0 7px;padding:7px 8px;border-radius:8px;background:rgba(255,255,255,.72);border:1px solid rgba(203,216,234,.9);line-height:1.28}
+#hintText .swb-hint-line strong{display:block;color:#173b72;margin-bottom:2px}
+@media (max-width:900px){
+  #hintText.swb-hint-history{font-size:.78rem!important;max-height:220px!important}
+  #hintText .swb-hint-line{padding:5px 6px!important;margin-bottom:5px!important}
+}
+@media (max-width:480px){
+  #hintText.swb-hint-history{font-size:.72rem!important;max-height:180px!important}
+}
+</style>
+<script id="swb-stage4-voice-hints">
+(function(){
+  const hintBtn=document.getElementById('hint');
+  const hintPanel=hintBtn&&hintBtn.closest('.panel');
+  const hintTextNode=document.getElementById('hintText');
+  const hintMetaNode=document.getElementById('hintMeta');
+  const side=hintPanel&&hintPanel.parentElement;
+  if(!hintPanel||!hintTextNode||!hintMetaNode)return;
+
+  /* If v1 ever ran before this script in an edited copy, restore the hint panel
+     to the original right-side .side container and remove the temporary rail. */
+  const oldRail=document.getElementById('swbStage4HintRail');
+  if(oldRail&&side!==oldRail){
+    try{ oldRail.remove(); }catch(e){}
+  }
+
+  hintTextNode.classList.add('swb-hint-history');
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function currentItem(){try{return selected>=0&&board&&board[selected]?board[selected]:null;}catch(e){return null;}}
+  function renderHistory(){
+    const item=currentItem();
+    if(!item){
+      hintTextNode.textContent='Select a tile to see its hints here.';
+      hintMetaNode.textContent='Hint 0 of 5';
+      return;
+    }
+    const used=Math.max(0,Math.min(5,Number(item.hintIndex)||0));
+    if(!used){
+      hintTextNode.textContent='No hints used for this tile yet.';
+      hintMetaNode.textContent='Hint 0 of 5';
+      return;
+    }
+    const hs=Array.isArray(item.hints)?item.hints:[];
+    let html='';
+    for(let i=0;i<used;i++){
+      html+='<span class="swb-hint-line"><strong>Hint '+(i+1)+'</strong>'+esc(hs[i]||'Hint unavailable for this word.')+'</span>';
+    }
+    hintTextNode.innerHTML=html;
+    hintMetaNode.textContent='Hint '+used+' of 5';
+  }
+  window.SWBStage4Hints={render:renderHistory};
+
+  /* Preserve the game's existing hint rules/costs, then display every hint
+     already used for this tile in the same right-side Get A Hint panel. */
+  const priorShowHint=window.showHint;
+  window.showHint=function(){
+    if(typeof priorShowHint==='function')priorShowHint();
+    renderHistory();
+  };
+  hintBtn.onclick=window.showHint;
+
+  const priorSelectTile=window.selectTile;
+  window.selectTile=function(i){
+    if(typeof priorSelectTile==='function')priorSelectTile(i);
+    setTimeout(renderHistory,0);
+  };
+
+  const boardNode=document.getElementById('board');
+  if(boardNode){
+    const obs=new MutationObserver(function(){setTimeout(renderHistory,0);});
+    obs.observe(boardNode,{childList:true,subtree:false});
+  }
+  renderHistory();
+})();
+</script>
+<!-- STAGE_4_VOICE_HINTS_V3_END -->
+
+<!-- SWB_ANSWER_METHOD_TOGGLE_V1_START -->
+<style id="swb-answer-method-toggle-style">
+#swbAnswerMethodToggleV1{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin:6px 0 8px;grid-column:1/-1}
+#swbAnswerMethodToggleV1 .swb-method-btn{min-height:38px;padding:7px 12px;border-radius:999px;border:2px solid #9fb4d2;background:#eef4fb;color:#173b72;font-weight:900;cursor:pointer}
+#swbAnswerMethodToggleV1 .swb-method-btn[aria-pressed="true"]{background:#173b72;color:#fff;border-color:#173b72}
+@media(max-width:480px){#swbAnswerMethodToggleV1{gap:5px;margin:4px 0 6px}#swbAnswerMethodToggleV1 .swb-method-btn{min-height:36px;padding:6px 10px;font-size:.78rem}}
+</style>
+<script id="swb-answer-method-toggle-script-v1">
+(function(){
+  const row=document.querySelector('.answer-row');
+  const answer=document.getElementById('answer');
+  const submit=document.getElementById('submit');
+  const originalVoice=document.getElementById('swbVoicePlayV90');
+  const originalType=document.getElementById('swbTypePlayV90');
+  if(!row||!answer||!submit||!originalVoice||!originalType)return;
+
+  const wrap=document.createElement('div');
+  wrap.id='swbAnswerMethodToggleV1';
+  wrap.setAttribute('aria-label','Answer method');
+  wrap.innerHTML='<button type="button" class="swb-method-btn" id="swbToggleVoiceV1" aria-pressed="false">🎤 Voice Answer</button><button type="button" class="swb-method-btn" id="swbToggleTypeV1" aria-pressed="false">⌨️ Type Answer</button>';
+  row.insertBefore(wrap,row.firstChild);
+  const voice=document.getElementById('swbToggleVoiceV1');
+  const type=document.getElementById('swbToggleTypeV1');
+
+  function currentStyle(){return window.SWB_PLAY_STYLE||document.documentElement.dataset.swbPlayStyle||'';}
+  function activeTile(){
+    try{return typeof selected!=='undefined'&&selected>=0&&board&&board[selected]&&!board[selected].solved;}catch(e){return false;}
+  }
+  function sync(){
+    const v=currentStyle()==='voice';
+    voice.setAttribute('aria-pressed',v?'true':'false');
+    type.setAttribute('aria-pressed',v?'false':'true');
+    if(!v&&activeTile()){
+      answer.disabled=false;
+      answer.readOnly=false;
+      answer.removeAttribute('inputmode');
+      submit.disabled=false;
+      try{answer.focus({preventScroll:true});}catch(e){}
+    }
+  }
+  function chooseVoice(){
+    if(currentStyle()==='voice'){sync();return;}
+    originalVoice.click();
+    setTimeout(function(){
+      sync();
+      /* If a tile was already active when the player changed methods,
+         re-enter that same tile through the existing voice selection path so
+         Voice Answer listens for the current word without resetting progress. */
+      try{if(activeTile()&&typeof selectTile==='function')selectTile(selected);}catch(e){}
+    },30);
+  }
+  function chooseType(){
+    if(currentStyle()==='type'){sync();return;}
+    originalType.click();
+    setTimeout(sync,30);
+  }
+  voice.addEventListener('click',chooseVoice);
+  type.addEventListener('click',chooseType);
+  document.addEventListener('swb:playstylechange',function(){setTimeout(sync,0);});
+  setTimeout(sync,450);
+})();
+</script>
+<!-- SWB_ANSWER_METHOD_TOGGLE_V1_END -->
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
@@ -10840,3 +11504,74 @@ body.swb-daily-active #swbDailyLeaderboardBtn{display:block!important;}
 
 <!-- V96: Mobile bottom utility row — Today's Games | Sound | Print. -->
 <!-- V96 END -->
+
+<!-- SWB_V6_HINT_TOGGLE_FIX_START -->
+<script id="swb-v6-hint-toggle-fix">
+(function(){
+  const hintBtn=document.getElementById('hint');
+  if(!hintBtn)return;
+
+  function activeItem(){
+    try{
+      if(typeof selected==='undefined'||selected<0||!board||!board[selected])return null;
+      return board[selected];
+    }catch(e){return null;}
+  }
+
+  function syncHintButton(){
+    const item=activeItem();
+    let isPaused=false;
+    try{isPaused=!!paused;}catch(e){}
+    hintBtn.disabled=!item||isPaused||Number(item.hintIndex||0)>=5;
+  }
+
+  /* Re-sync after tile selection, regardless of whether the tile was selected
+     manually or by voice. */
+  try{
+    const priorSelect=window.selectTile;
+    if(typeof priorSelect==='function'&&!priorSelect.__swbV6HintWrapped){
+      const wrapped=function(i){
+        const out=priorSelect.apply(this,arguments);
+        setTimeout(syncHintButton,0);
+        setTimeout(syncHintButton,80);
+        return out;
+      };
+      wrapped.__swbV6HintWrapped=true;
+      window.selectTile=wrapped;
+    }
+  }catch(e){}
+
+  /* Switching Voice Answer <-> Type Answer must not disable hints for the
+     currently active tile. */
+  document.addEventListener('swb:playstylechange',function(){
+    setTimeout(syncHintButton,0);
+    setTimeout(syncHintButton,80);
+  });
+
+  /* Keep the manual Show Hint button attached to the current Stage 4 hint
+     function and restore the correct enabled state before use. */
+  hintBtn.addEventListener('pointerdown',function(){
+    syncHintButton();
+  },true);
+
+  hintBtn.addEventListener('click',function(){
+    setTimeout(function(){
+      if(window.SWBStage4Hints&&typeof window.SWBStage4Hints.render==='function'){
+        try{window.SWBStage4Hints.render();}catch(e){}
+      }
+      syncHintButton();
+    },0);
+  });
+
+  /* Board rebuilds/new games can replace state without replacing the button. */
+  const boardNode=document.getElementById('board');
+  if(boardNode){
+    new MutationObserver(function(){setTimeout(syncHintButton,0);})
+      .observe(boardNode,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  }
+
+  window.SWBHintV6={sync:syncHintButton};
+  syncHintButton();
+})();
+</script>
+<!-- SWB_V6_HINT_TOGGLE_FIX_END -->
