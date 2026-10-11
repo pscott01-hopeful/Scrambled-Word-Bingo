@@ -1682,6 +1682,7 @@ function resetSameBoard(){
    isFaith:!!item.isFaith
  }));
  const entries=shuffled(existing);
+ rememberCategoryBoard(categoryEl.value,entries);
  board=[];let ei=0;
  for(let i=0;i<25;i++){if(i===12)board.push({free:true,solved:true,word:"FREE"});else board.push(entries[ei++]);}
  render();solvedCount.textContent="0 / 24";
@@ -1767,6 +1768,25 @@ function dailyScramble(word,seed){
  return a.join("");
 }
 
+// Remember the last displayed board separately for each category, across visits.
+const recentBoardsByCategory=new Map();
+function previousCategoryBoard(category){
+ const storageKey="swb_last_category_board_v1_"+encodeURIComponent(category);
+ let snapshot=recentBoardsByCategory.get(category)||null;
+ try{
+   const saved=JSON.parse(localStorage.getItem(storageKey)||"null");
+   if(saved && Array.isArray(saved.order) && saved.order.length===24 &&
+      saved.order.every(word=>typeof word==="string"))snapshot=saved;
+ }catch(e){}
+ return snapshot;
+}
+function rememberCategoryBoard(category,items){
+ const order=items.filter(item=>item&&!item.free).map(item=>normalizeAnswer(item.word).toLowerCase());
+ if(order.length!==24)return;
+ const snapshot={order};
+ recentBoardsByCategory.set(category,snapshot);
+ try{localStorage.setItem("swb_last_category_board_v1_"+encodeURIComponent(category),JSON.stringify(snapshot));}catch(e){}
+}
 function buildBoard(){
  if(window.SWBFamily45V23)window.SWBFamily45V23.clear();
  stopTimer();seconds=0;timerEl.textContent=timerEnabled?"00:00":"Relaxed";started=false;paused=false;document.getElementById("pause").textContent="Pause";
@@ -1780,6 +1800,7 @@ function buildBoard(){
  hintText.textContent="";hintMeta.textContent="Hint 0 of 5";
  selectedDisplay.textContent="";setMessage("Tap a covered tile to reveal your first scrambled word.");
  const category=categoryEl.value;
+ const previousCategory=playMode!=="daily"?previousCategoryBoard(category):null;
  if(playMode!=="daily")localStorage.setItem("swb_category",category);
  categoryStat.textContent=category;updateBest();
  let selectedWords,entries;
@@ -1944,7 +1965,10 @@ function buildBoard(){
      // Begin the fresh cycle with all words again.
      // Prevent duplicates on the SAME board by temporarily holding
      // words already selected on this board for later New Games.
-     const freshOrder=shuffled(allKeys);
+     // At a cycle boundary, choose words outside the last board first.
+     // This changes the word set whenever the bank has more than 23 answers.
+     const previousWords=new Set(previousCategory?.order||state.lastBoardWords||[]);
+     const freshOrder=shuffled(allKeys).sort((a,b)=>Number(previousWords.has(a))-Number(previousWords.has(b)));
      const eligible=freshOrder.filter(k=>!selectedKeys.has(k));
      const heldForLater=freshOrder.filter(k=>selectedKeys.has(k));
 
@@ -1974,6 +1998,7 @@ function buildBoard(){
    }
 
    lastWords=selectedWords.map(w=>w[0]);
+   state.lastBoardWords=selectedWords.map(w=>normalizeAnswer(w[0]).toLowerCase());
 
    // Save this board's rotation state for the NEXT New Game.
    localStorage.setItem(deckKey,JSON.stringify(state));
@@ -1990,13 +2015,7 @@ function buildBoard(){
    }));
    entries.push({word:"faith",displayWord:"Faith",hints:FAITH_HINTS,scramble:scrambleAnswer("faith"),solved:false,hintIndex:0,isFaith:true});
 
-   // Guarantee a new tile order rather than relying on one random shuffle.
    entries=shuffled(entries);
-   const previousOrder=board.filter(item=>!item.free).map(item=>item.word).join("|");
-   let attempts=0;
-   while(entries.map(item=>item.word).join("|")===previousOrder && attempts++<8){
-     entries=shuffled(entries);
-   }
  }
  // FINAL BOARD INTEGRITY CHECK: never allow the same answer twice on one board.
  // This protects every category, including Daily Puzzle, even if a source bank accidentally contains duplicates.
@@ -2027,6 +2046,19 @@ function buildBoard(){
        entries.push({word:w[0],displayWord:displayWord(w[0]),hints:makeMeaningfulHints(w[0],sourceTheme,w.slice(1,6)),scramble:fillScramble,solved:false,hintIndex:0,isFaith:false});
      }
    }
+ }
+ if(playMode!=="daily"){
+   // Check the final order after integrity filling, not just the initial shuffle.
+   const signature=items=>JSON.stringify(items.map(item=>normalizeAnswer(item.word).toLowerCase()));
+   const lastOrder=previousCategory?JSON.stringify(previousCategory.order):null;
+   const currentOrder=signature(board.filter(item=>item&&!item.free));
+   let attempts=0;
+   while((signature(entries)===lastOrder || signature(entries)===currentOrder) && attempts++<8){entries=shuffled(entries);}
+   // Randomness is not a guarantee: rotate deterministically if shuffling repeats.
+   while(entries.length>1 && (signature(entries)===lastOrder || signature(entries)===currentOrder)){
+     entries.push(entries.shift());
+   }
+   rememberCategoryBoard(category,entries);
  }
  board=[];let ei=0;
  for(let i=0;i<25;i++){ if(i===12) board.push({free:true,solved:true,word:"FREE"}); else board.push(entries[ei++]); }
@@ -2076,6 +2108,8 @@ function render(){
   b.appendChild(span);
   boardEl.appendChild(b);
  });
+ if(window.SWBBoardViewV12) window.SWBBoardViewV12.apply();
+ else if(window.applyFamilyTileCovers) window.applyFamilyTileCovers();
  if(window.__fitBoardTiles) window.__fitBoardTiles();
 }
 function selectTile(i){
@@ -2504,7 +2538,15 @@ document.getElementById("changePlayers").onclick=()=>{document.getElementById("s
 document.getElementById("closeSummary").onclick=()=>document.getElementById("summaryModal").classList.remove("show");
 timerEnabled=localStorage.getItem("swb_timer_enabled")!=="off";
 setTimerMode(timerEnabled);
-buildBoard();
+// Wait until all category banks and menu patches have loaded before dealing.
+document.addEventListener("DOMContentLoaded",()=>setTimeout(buildBoard,0),{once:true});
+// Returning from another page can restore an old page without running startup.
+window.addEventListener("pageshow",event=>{
+ if(event.persisted && playMode!=="daily"){
+   if(window.SWBBoardViewV12)window.SWBBoardViewV12.setMode("covered");
+   buildBoard();
+ }
+});
 
 // v0.70 Family summary controls
 const changePlayersBtn=document.getElementById("changePlayers");
@@ -6183,6 +6225,7 @@ button#submit:not(:disabled):hover{
   }
 
   function applyTileCovers(){
+    if(window.SWBBoardViewV12){window.SWBBoardViewV12.apply();return;}
     removeWholeBoardCover();
 
     const board=document.getElementById("board");
@@ -6774,6 +6817,7 @@ window.SWB_HINT_AUDIT={
 
   function isSolved(tile){
     return tile.classList.contains("solved") ||
+           tile.classList.contains("faith-solved") ||
            tile.classList.contains("correct") ||
            tile.classList.contains("marked") ||
            tile.classList.contains("done");
@@ -6786,8 +6830,8 @@ window.SWB_HINT_AUDIT={
       const board=document.getElementById("board");
       if(!board)return;
 
-      // Remove both our current covers and any earlier universal cover layers.
-      board.querySelectorAll(".swb-cover-v12,.swb-cover-v11,.swb-cover-v10,.universal-tile-cover")
+      // Keep current covers in place; remove only obsolete cover layers.
+      board.querySelectorAll(".swb-cover-v11,.swb-cover-v10,.universal-tile-cover")
         .forEach(el=>el.remove());
 
       // Also remove the older Family Game Night cover overlays when Open is selected.
@@ -6796,7 +6840,7 @@ window.SWB_HINT_AUDIT={
           const tiles=[...board.querySelectorAll(".tile")];
           window.__familyRevealedTiles=new Set(tiles.map((_,i)=>i));
         }
-        board.querySelectorAll(".family-tile-cover").forEach(el=>el.remove());
+        board.querySelectorAll(".swb-cover-v12,.family-tile-cover,.family-45-expired-cover-v23").forEach(el=>el.remove());
         return;
       }
 
@@ -6813,7 +6857,11 @@ window.SWB_HINT_AUDIT={
           window.__familyRevealedTiles instanceof Set &&
           window.__familyRevealedTiles.has(i);
 
-        if(isFree(tile) || isSolved(tile) || (familyActive ? familyRevealed : revealed.has(i)))return;
+        if(isFree(tile) || isSolved(tile) || (familyActive ? familyRevealed : revealed.has(i))){
+          tile.querySelectorAll(".swb-cover-v12,.family-tile-cover,.family-45-expired-cover-v23").forEach(el=>el.remove());
+          return;
+        }
+        if(tile.querySelector(".swb-cover-v12"))return;
 
         // Remove any legacy tile cover first so there is only one visible layer.
         tile.querySelectorAll(".family-tile-cover").forEach(el=>el.remove());
@@ -9509,7 +9557,8 @@ window.SWB_HINT_AUDIT={
   const PLAN_MAP={'5':'five','10':'ten','unlimited':'unlimited'};
   let balance={freeGamesPerDay:FREE_LIMIT,freeGamesRemaining:FREE_LIMIT,purchasedGamesRemaining:0,unlimited:false,loaded:false};
 
-  const validPlayerId=id=>!!(id&&/^[A-Za-z0-9_-]{8,128}$/.test(id));
+  // Accept generated identities only; storage key names must never become players.
+  const validPlayerId=id=>typeof id==='string'&&/^swb_(?:[a-f0-9][a-f0-9-]{15,63}|[0-9]{13}_[a-z0-9]{1,16})$/i.test(id);
 
   function candidatePlayerIds(){
     const ids=[];
@@ -9526,7 +9575,7 @@ window.SWB_HINT_AUDIT={
       for(let i=0;i<localStorage.length;i++){
         const k=localStorage.key(i)||'';
         const v=localStorage.getItem(k)||'';
-        for(const text of [k,v]){
+        for(const text of [v]){
           const matches=text.match(rx)||[];
           matches.forEach(add);
         }
@@ -9571,7 +9620,7 @@ window.SWB_HINT_AUDIT={
     try{
       const raw=String(location.hash||'');
       const m=raw.match(/^#restore=(swb_[A-Za-z0-9_-]{8,128})$/);
-      if(!m)return false;
+      if(!m||!validPlayerId(m[1]))return false;
       const id=m[1];
       localStorage.setItem(PLAYER_ID_KEY,id);
       localStorage.setItem('swb_player_id_v78',id);
@@ -9838,9 +9887,11 @@ window.SWB_HINT_AUDIT={
    if(!box){box=document.createElement('div');box.id='swbVisibleBalanceV86';box.setAttribute('aria-live','polite');}
    const mobileUtility=document.getElementById('swbMobileUtilityRowV96'); if(!(window.matchMedia('(max-width:820px)').matches && mobileUtility) && box.nextElementSibling!==more)more.insertAdjacentElement('beforebegin',box);
    const api=window.SWBAccessV74;
-   if(!api){box.innerHTML='<div class="swb-bal-title">TODAY\'S GAMES</div>Checking balance…';return;}
-   if(api.unlimited()){box.innerHTML='<div class="swb-bal-title">GAME BALANCE</div>🎮 Monthly Unlimited';return;}
-   box.innerHTML='<div class="swb-bal-title">TODAY\'S GAMES</div>Free: '+api.freeRemaining()+' &nbsp;|&nbsp; Purchased: '+api.paidCredits();
+   let html;
+   if(!api){html='<div class="swb-bal-title">TODAY\'S GAMES</div>Checking balance…';}
+   else if(api.unlimited()){html='<div class="swb-bal-title">GAME BALANCE</div>🎮 Monthly Unlimited';}
+   else html='<div class="swb-bal-title">TODAY\'S GAMES</div>Free: '+api.freeRemaining()+' &nbsp;|&nbsp; Purchased: '+api.paidCredits();
+   if(box.dataset.balanceHtml!==html){box.innerHTML=html;box.dataset.balanceHtml=html;}
  }
  function start(){render(); const api=window.SWBAccessV74; if(api&&api.refreshBalance)api.refreshBalance({quiet:true}).then(render); setInterval(render,1200);}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(start,50));else setTimeout(start,50);
@@ -9934,7 +9985,7 @@ window.SWB_HINT_AUDIT={
     <li><b>Toggle anytime:</b> Switch between <b>Voice Answer</b> and <b>Type Answer</b> during the same game without restarting or losing your board, score, hints, timer, or progress.</li>
     <li><b>Get a hint:</b> While Voice Answer is active, say <b>“Give me a hint,” “Hint,”</b> or <b>“Next hint.”</b> You can also tap <b>Show Hint</b>.</li>
     <li><b>Manual controls:</b> You can always tap on-screen game controls, tiles, and hints.</li>
-    <li><b>Resume listening:</b> If voice recognition pauses, tap the voice status/control to resume.</li>
+    <li><b>Listening resumes automatically:</b> Voice Answer reconnects after a quiet break and resumes after you close a game popup or press Resume. If the microphone or connection needs attention, tap the voice status/control to try again.</li>
    </ul>
   </div>
   <div class="coveredTip">⭐ Choose <b>Covered Board</b> for more surprise or <b>Open Board</b> to see all scrambled words from the start.</div>
@@ -10981,11 +11032,15 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   let stoppedForDialog=false;
   let userStoppedVoice=false;
   let idleStopped=false;
+  let recognitionStarting=false;
+  let sessionStartedAt=0;
+  let rapidEnds=0;
+  let retryDelay=400;
 
   function isVoice(){return window.SWB_PLAY_STYLE==='voice'||document.documentElement.dataset.swbPlayStyle==='voice';}
   function dialogOpen(){
     try{
-      const dialogs=[...document.querySelectorAll('[role=\"dialog\"]')];
+      const dialogs=[...document.querySelectorAll('[role=\"dialog\"],.modal')];
       return dialogs.some(function(el){
         if(el===document.getElementById('swbPlayChoiceV90'))return false;
         const cs=getComputedStyle(el);
@@ -10994,13 +11049,13 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
     }catch(e){return false;}
   }
   function clearRestart(){if(restartTimer){clearTimeout(restartTimer);restartTimer=null;}}
-  function canListen(){return isVoice()&&!paused&&!stoppedForPause&&!stoppedForDialog&&!userStoppedVoice&&!dialogOpen();}
+  function canListen(){return !document.hidden&&isVoice()&&!paused&&!stoppedForPause&&!stoppedForDialog&&!userStoppedVoice&&!dialogOpen();}
   function scheduleRestart(delay){
     clearRestart();
     if(!hostedVoiceOrigin()||!canListen())return;
-    restartTimer=setTimeout(function(){restartTimer=null;if(canListen()&&!recognitionActive)startRecognition();},Math.max(180,delay||350));
+    restartTimer=setTimeout(function(){restartTimer=null;if(canListen())startRecognition();},Math.max(180,delay||350));
   }
-  function setStatus(text,isListening){statusCopy.textContent=text;status.classList.toggle('listening',!!isListening);}
+  function setStatus(text,isListening){if(statusCopy.textContent!==text)statusCopy.textContent=text;status.classList.toggle('listening',!!isListening);}
   function tileReady(){try{return isVoice()&&typeof selected!=='undefined'&&selected>=0&&board&&board[selected]&&!board[selected].solved&&!paused;}catch(e){return false;}}
   function tileLabelFromIndex(i){
     const letters=['B','I','N','G','O'];
@@ -11151,9 +11206,10 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
     if(!SpeechRecognitionCtor)return null;
     const r=new SpeechRecognitionCtor();
     r.lang='en-US';r.interimResults=false;r.continuous=true;r.maxAlternatives=3;
-    r.onstart=function(){idleStopped=false;recognitionActive=true;if(awaitingAnswer&&tileReady())setStatus('Listening… Say the word you think is correct.',true);else setStatus('Listening… Say a tile, such as B1, or tap a tile.',true);};
+    r.onstart=function(){if(r!==recognition)return;idleStopped=false;recognitionStarting=false;recognitionActive=true;sessionStartedAt=Date.now();if(awaitingAnswer&&tileReady())setStatus('Listening… Say the word you think is correct.',true);else setStatus('Listening… Say a tile, such as B1, or tap a tile.',true);};
     r.onresult=function(event){
-      if(!isVoice()||Date.now()<ignoreResultsUntil)return;
+      if(r!==recognition||!canListen()||Date.now()<ignoreResultsUntil)return;
+      rapidEnds=0;retryDelay=400;
       let alternatives=[];
       try{
         const idx=typeof event.resultIndex==='number'?event.resultIndex:event.results.length-1;
@@ -11193,7 +11249,10 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
     };
     r.onnomatch=function(){if(awaitingAnswer&&tileReady())setStatus("I didn't catch that. Please say the answer again.",true);else setStatus("I didn't catch the tile. Say B1, I3, N4, G2, or O5.",true);};
     r.onerror=function(event){
+      if(r!==recognition)return;
       const code=event&&event.error?String(event.error):'';
+      if(['not-allowed','service-not-allowed','audio-capture'].includes(code)){userStoppedVoice=true;clearRestart();}
+      if(code==='network')retryDelay=Math.min(10000,retryDelay*2);
       if(code==='not-allowed'||code==='service-not-allowed')setStatus('Microphone access is blocked. Allow microphone access to use Voice Play.');
       else if(code==='audio-capture')setStatus('No microphone was detected on this device.');
       else if(code==='no-speech'){
@@ -11203,38 +11262,37 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       else if(code!=='aborted'&&awaitingAnswer)setStatus("I couldn't understand that. Select the tile again and say the answer.");
     };
     r.onend=function(){
-      recognitionActive=false;
-      if(!isVoice())return;
-      if(stoppedForPause||paused){setStatus('Game paused. Voice is off until play resumes.');return;}
-      if(stoppedForDialog||dialogOpen()){setStatus('Voice is paused while this window is open.');return;}
-      if(userStoppedVoice)return;
-
-      // Android/Chrome may end Web Speech recognition after a period of silence.
-      // Do NOT automatically restart here. Repeated restart cycles can produce
-      // the Android/Chrome microphone chirp. Keep Voice Play enabled, but idle,
-      // until the player taps the Voice status box or manually selects a tile.
+      if(r!==recognition)return;
+      recognitionActive=false;recognitionStarting=false;
+      if(!isVoice()||userStoppedVoice)return;
+      if(stoppedForPause||paused){setStatus('Game paused. Voice resumes when play resumes.');return;}
+      if(stoppedForDialog||dialogOpen()){setStatus('Voice resumes when this window closes.');return;}
+      if(document.hidden)return;
+      rapidEnds=Date.now()-sessionStartedAt<1500?rapidEnds+1:0;
+      if(rapidEnds>=4){userStoppedVoice=true;idleStopped=true;setStatus('Voice connection interrupted. Tap here to try again.');return;}
+      awaitingAnswer=tileReady();
       idleStopped=true;
-      if(awaitingAnswer&&tileReady()){
-        setStatus('Voice Play On — tap here when you are ready to say the answer.');
-      }else{
-        setStatus('Voice Play On — tap here to resume, then say a tile.');
-      }
+      setStatus('Reconnecting voice…');
+      scheduleRestart(retryDelay);
     };
     return r;
   }
   function startRecognition(){
     if(!SpeechRecognitionCtor||!canListen())return;
-    if(recognitionActive)return;
+    if(recognitionActive||recognitionStarting)return;
+    clearRestart();
     idleStopped=false;
     if(!recognition)recognition=buildRecognition();
-    try{recognition.start();}catch(e){if(String(e&&e.name||'')!=='InvalidStateError')setStatus('Voice recognition could not start. Select the tile again.');}
+    try{recognitionStarting=true;sessionStartedAt=Date.now();recognition.start();}catch(e){
+      recognitionStarting=false;userStoppedVoice=true;
+      setStatus('Voice could not start. Tap here to try again.');
+    }
   }
   function stopRecognition(forPause){
     clearRestart();
     stoppedForPause=!!forPause;
     awaitingAnswer=false;
-    if(recognitionActive&&recognition){try{recognition.abort();}catch(e){}}
-    recognitionActive=false;
+    if((recognitionActive||recognitionStarting)&&recognition){try{recognition.abort();}catch(e){recognitionActive=false;recognitionStarting=false;}}
   }
 
   try{
@@ -11254,12 +11312,12 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   document.addEventListener('swb:playstylechange',function(e){
     const style=e&&e.detail?e.detail.style:'';
     if(style==='voice'){
-      setVoiceInputState(true);awaitingAnswer=false;stoppedForPause=false;stoppedForDialog=false;userStoppedVoice=false;idleStopped=false;
+      setVoiceInputState(true);awaitingAnswer=false;stoppedForPause=false;stoppedForDialog=false;userStoppedVoice=false;idleStopped=false;rapidEnds=0;retryDelay=400;
       setStatus('Voice ready. Say a tile such as B1, or tap a tile.');
       /* Stage 3: begin listening once Voice Play is chosen so the first tile can be selected by voice. */
       setTimeout(startRecognition,120);
     }else{
-      userStoppedVoice=true;stopRecognition(false);recognition=null;setVoiceInputState(false);setStatus('Voice ready. Select a tile.');
+      userStoppedVoice=true;stopRecognition(false);recognition=null;recognitionActive=false;recognitionStarting=false;setVoiceInputState(false);setStatus('Voice ready. Select a tile.');
     }
   });
 
@@ -11279,7 +11337,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       }else if(tileReady()){
         awaitingAnswer=true;
         idleStopped=true;
-        setStatus('Hint shown. Voice Play is on — tap the Voice box when you are ready to answer.');
+        if(!userStoppedVoice)setStatus('Hint shown. Voice is reconnecting for your answer.');
       }
     },true);
   }
@@ -11289,7 +11347,7 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       if(!isVoice())return;
       setTimeout(function(){
         if(paused){stopRecognition(true);setStatus('Game paused. Voice is off until play resumes.');}
-        else{stoppedForPause=false;idleStopped=true;setStatus('Voice Play On — tap the Voice box to resume listening.');}
+        else{stoppedForPause=false;awaitingAnswer=tileReady();scheduleRestart(250);}
       },0);
     },true);
   }
@@ -11302,29 +11360,28 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       if(!isVoice())return;
       const open=dialogOpen();
       if(open){
-        if(!stoppedForDialog){stoppedForDialog=true;clearRestart();if(recognitionActive&&recognition){try{recognition.abort();}catch(e){}}recognitionActive=false;setStatus('Voice is paused while this window is open.');}
+        if(!stoppedForDialog){stoppedForDialog=true;clearRestart();if((recognitionActive||recognitionStarting)&&recognition){try{recognition.abort();}catch(e){recognitionActive=false;recognitionStarting=false;}}setStatus('Voice is paused while this window is open.');}
       }else if(stoppedForDialog){
         stoppedForDialog=false;
         if(!paused&&!stoppedForPause){
           if(tileReady())awaitingAnswer=true;
-          idleStopped=true;
-          setStatus(tileReady()?'Voice Play On — tap the Voice box when you are ready to answer.':'Voice Play On — tap the Voice box to resume listening.');
+          scheduleRestart(250);
         }
       }
     },80);
   });
   dialogObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
 
-  // Quiet Android idle recovery: after Chrome ends recognition because of
-  // silence, the player can tap this status box once to resume listening.
-  // This avoids the repeated automatic stop/start chirp loop.
+  // Manual recovery is available if permissions or repeated service failures
+  // prevent automatic reconnection. Normal idle breaks resume automatically.
   status.style.cursor='pointer';
   status.setAttribute('role','button');
   status.setAttribute('tabindex','0');
   status.setAttribute('aria-label','Voice Play status. Tap to resume listening when idle.');
   function resumeVoiceFromStatus(){
     if(!isVoice()||paused||stoppedForPause||stoppedForDialog||dialogOpen())return;
-    if(recognitionActive)return;
+    if(recognitionActive||recognitionStarting)return;
+    userStoppedVoice=false;rapidEnds=0;retryDelay=400;
     if(tileReady())awaitingAnswer=true;
     setStatus(tileReady()?'Listening… Say the word you think is correct.':'Listening… Say a tile, such as B1.',true);
     startRecognition();
@@ -11337,6 +11394,11 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
   answer.addEventListener('focus',function(){if(isVoice())answer.blur();},true);
 
   if(isVoice()){setVoiceInputState(true);setStatus('Voice ready. Say a tile such as B1, or tap a tile.');setTimeout(startRecognition,120);}
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){stopRecognition(false);}
+    else if(isVoice()){awaitingAnswer=tileReady();scheduleRestart(350);}
+  });
+  window.addEventListener('pageshow',function(){if(isVoice())scheduleRestart(350);});
   window.addEventListener('pagehide',function(){stopRecognition(false);});
 })();
 </script>
