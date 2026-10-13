@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pscott01-hopeful.github.io/Scrambled-Word-Bingo/sitemap.xml
