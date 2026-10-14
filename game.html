@@ -943,6 +943,7 @@ button.submit-btn:disabled {
         <div id="hintText" class="hint-text"></div>
         <div id="hintMeta" class="hint-meta">Hint 0 of 5</div>
         <button class="btn secondary" id="hint" style="width:100%;margin-top:7px" disabled>Show Hint</button>
+        <button class="btn secondary" id="readHintAloud" type="button" style="width:100%;margin-top:7px" disabled aria-label="Read current hint aloud">🔊 Read Hint Aloud</button>
       </div>
       <div class="panel" id="familyPanel" style="display:none">
         <h3 style="color:#FFD700;">Family Game Night</h3>
@@ -11225,6 +11226,16 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
       // Stage 4: hint commands work while a tile is active and must never be
       // mistaken for a spoken answer.
       if(tileReady()){
+        const readHintCommand=alternatives.some(function(t){
+          const q=String(t||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+          return q==='read hint aloud'||q==='read the hint'||q==='read hint'||q==='say the hint'||q==='speak the hint'||q==='repeat hint';
+        });
+        if(readHintCommand){
+          ignoreResultsUntil=Date.now()+9000;
+          try{ window.swbReadCurrentHintAloud(); }catch(e){}
+          awaitingAnswer=tileReady();
+          return;
+        }
         const hintCommand=alternatives.some(function(t){
           const q=String(t||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
           return q==='hint'||q==='next hint'||q==='another hint'||q==='give me a hint'||q==='give me another hint'||q==='i need a hint'||q==='show hint'||q==='show me a hint';
@@ -11550,6 +11561,38 @@ html[data-swb-play-style="voice"] .answer-row{grid-template-columns:minmax(180px
 })();
 </script>
 <!-- SWB_ANSWER_METHOD_TOGGLE_V1_END -->
+<script>
+/* Optional read-aloud accessibility feature. Does not advance hints or affect scoring. */
+(function(){
+  var readButton=document.getElementById('readHintAloud');
+  var hintArea=document.getElementById('hintText');
+  var hintMetaArea=document.getElementById('hintMeta');
+  if(!readButton||!hintArea)return;
+  function available(){
+    var txt=(hintArea.textContent||'').trim();
+    return !!(window.speechSynthesis && window.SpeechSynthesisUtterance && txt &&
+      !/^tap|^select|^choose|^hint unavailable/i.test(txt) &&
+      hintMetaArea && /Hint [1-5] of 5/i.test(hintMetaArea.textContent||''));
+  }
+  function refresh(){readButton.disabled=!available();}
+  window.swbReadCurrentHintAloud=function(){
+    refresh();
+    if(readButton.disabled)return false;
+    try{
+      window.speechSynthesis.cancel();
+      var utterance=new SpeechSynthesisUtterance((hintArea.textContent||'').trim());
+      utterance.lang='en-US';
+      utterance.rate=0.9;
+      window.speechSynthesis.speak(utterance);
+      return true;
+    }catch(e){return false;}
+  };
+  readButton.addEventListener('click',function(){window.swbReadCurrentHintAloud();});
+  new MutationObserver(refresh).observe(hintArea,{childList:true,characterData:true,subtree:true});
+  if(hintMetaArea)new MutationObserver(refresh).observe(hintMetaArea,{childList:true,characterData:true,subtree:true});
+  refresh();
+})();
+</script>
 </body>
 </html>
 <!-- v0.68: corrected approved logo embedded with transparent background; no other game content changed. -->
